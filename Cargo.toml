@@ -1,0 +1,24 @@
+[package]
+name = "ece"
+version = "0.1.0"
+authors = ["Edouard Oger <eoger@fastmail.com>"]
+license = "MPL-2.0"
+
+[dependencies]
+byteorder = "1.2.6"
+failure = "0.1.2"
+failure_derive = "0.1.2"
+
+[dependencies.ece-crypto]
+path = "crypto"
+
+[dependencies.ece-crypto-openssl]
+path = "crypto/openssl"
+optional = true
+
+[dev-dependencies]
+hex = "0.3.2"
+
+[features]
+default = ["openssl"]
+openssl = ["ece-crypto-openssl"]
