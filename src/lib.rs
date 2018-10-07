@@ -19,3 +19,5 @@ pub use error::*;
 extern crate ece_crypto_openssl;
 #[cfg(feature = "openssl")]
 use ece_crypto_openssl::CryptoImpl;
+#[cfg(feature = "openssl")]
+use ece_crypto_openssl::KeysImpl;

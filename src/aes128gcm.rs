@@ -4,9 +4,9 @@
 
 use byteorder::{BigEndian, ByteOrder};
 use common::*;
-use ece_crypto::Crypto;
+use ece_crypto::{Crypto, Keys};
 use error::*;
-use CryptoImpl;
+use {CryptoImpl, KeysImpl};
 
 const ECE_AES128GCM_MIN_RS: u32 = 18;
 const ECE_AES128GCM_HEADER_LENGTH: usize = 21;
@@ -23,9 +23,9 @@ const ECE_AES128GCM_NONCE_INFO: &'static str = "Content-Encoding: nonce\0";
 /// Decrypts a Web Push message encrypted using the "aes128gcm" scheme.
 pub fn decrypt(raw_local_prv_key: &[u8], auth_secret: &[u8], payload: &[u8]) -> Result<Vec<u8>> {
     let params = ece_aes128gcm_payload_extract_params(payload)?;
+    let keys = CryptoImpl::keys_with_existing_local_keypair(params.header.key_id, raw_local_prv_key)?;
     return Aes128GcmEceWebPush::decrypt(
-        raw_local_prv_key,
-        params.header.key_id,
+        keys,
         auth_secret,
         params.header.salt,
         params.header.rs,
@@ -64,23 +64,22 @@ impl EceWebPush for Aes128GcmEceWebPush {
     /// key, sender public key, authentication secret, and sender salt.
     fn webpush_derive_key_and_nonce(
         ece_mode: EceMode,
-        raw_local_prv_key: &[u8],
-        raw_remote_pub_key: &[u8],
+        keys: KeysImpl,
         auth_secret: &[u8],
         salt: &[u8],
     ) -> Result<KeyAndNonce> {
-        // TODO: we should probably do this all at once in Crypto and send back some structure containing 4 buffers!
-        let shared_secret = CryptoImpl::compute_ecdh_secret(raw_local_prv_key, raw_remote_pub_key)?;
-        let raw_local_pub_key = CryptoImpl::ec_prv_uncompressed_point(raw_local_prv_key)?;
+        let shared_secret = keys.compute_ecdh_secret()?;
+        let raw_remote_pub_key = keys.raw_remote_pub_key()?;
+        let raw_local_pub_key = keys.raw_local_pub_key()?;
 
         // The new "aes128gcm" scheme includes the sender and receiver public keys in
         // the info string when deriving the Web Push IKM.
         let ikm_info = match ece_mode {
             EceMode::ENCRYPT => {
-                ece_webpush_aes128gcm_generate_info(raw_remote_pub_key, &raw_local_pub_key)
+                ece_webpush_aes128gcm_generate_info(&raw_remote_pub_key, &raw_local_pub_key)
             }
             EceMode::DECRYPT => {
-                ece_webpush_aes128gcm_generate_info(&raw_local_pub_key, raw_remote_pub_key)
+                ece_webpush_aes128gcm_generate_info(&raw_local_pub_key, &raw_remote_pub_key)
             }
         }?;
         let ikm = CryptoImpl::hkdf_sha256(
