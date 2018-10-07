@@ -5,7 +5,7 @@
 use byteorder::{BigEndian, ByteOrder};
 use ece_crypto::Crypto;
 use error::*;
-use CryptoImpl;
+use {CryptoImpl, KeysImpl};
 
 // From keys.h:
 pub const ECE_AES_KEY_LENGTH: usize = 16;
@@ -31,8 +31,7 @@ pub type KeyAndNonce = (Vec<u8>, Vec<u8>);
 
 pub trait EceWebPush {
     fn decrypt(
-        raw_local_prv_key: &[u8],
-        raw_remote_pub_key: &[u8],
+        keys: KeysImpl,
         auth_secret: &[u8],
         salt: &[u8],
         rs: u32,
@@ -53,8 +52,7 @@ pub trait EceWebPush {
         }
         let (key, nonce) = Self::webpush_derive_key_and_nonce(
             EceMode::DECRYPT,
-            raw_local_prv_key,
-            raw_remote_pub_key,
+            keys,
             auth_secret,
             salt,
         )?;
@@ -90,8 +88,7 @@ pub trait EceWebPush {
     fn unpad(block: &[u8], last_record: bool) -> Result<&[u8]>;
     fn webpush_derive_key_and_nonce(
         ece_mode: EceMode,
-        raw_local_prv_key: &[u8],
-        raw_remote_pub_key: &[u8],
+        keys: KeysImpl,
         auth_secret: &[u8],
         salt: &[u8],
     ) -> Result<KeyAndNonce>;

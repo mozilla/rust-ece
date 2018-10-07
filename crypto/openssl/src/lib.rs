@@ -43,15 +43,32 @@ fn import_raw_ec_pub_key(raw_ec_pub_key: &[u8]) -> Result<EcKey<Public>, Error> 
     EcKey::from_public_key(&GROUP_P256, &point).map_err(|e| e.into())
 }
 
-pub struct CryptoImpl;
-impl Crypto for CryptoImpl {
+pub struct KeysImpl {
+    raw_local_ec_prv_key: Vec<u8>,
+    raw_remote_ec_pub_key: Vec<u8>,
+}
+
+impl KeysImpl {
+    fn with_ephemeral_local_keypair(raw_remote_ec_pub_key: &[u8]) -> Result<Self, Error> {
+        let raw_local_ec_prv_key = vec![0u8; 0]; // TODO
+        Ok(Self::with_keys(raw_remote_ec_pub_key, &raw_local_ec_prv_key))
+    }
+
+    fn with_keys(raw_remote_ec_pub_key: &[u8], raw_local_ec_prv_key: &[u8]) -> Self {
+        Self {
+            raw_local_ec_prv_key: raw_local_ec_prv_key.to_vec(),
+            raw_remote_ec_pub_key: raw_remote_ec_pub_key.to_vec(),
+        }
+    }
+}
+
+impl Keys for KeysImpl {
     fn compute_ecdh_secret(
-        raw_local_ec_prv_key: &[u8],
-        raw_remote_ec_pub_key: &[u8],
+        &self,
     ) -> Result<Vec<u8>, Error> {
-        let private = import_raw_ec_prv_key(&raw_local_ec_prv_key)?;
+        let private = import_raw_ec_prv_key(&self.raw_local_ec_prv_key)?;
         let private = PKey::from_ec_key(private)?;
-        let public = import_raw_ec_pub_key(&raw_remote_ec_pub_key)?;
+        let public = import_raw_ec_pub_key(&self.raw_remote_ec_pub_key)?;
         let public = PKey::from_ec_key(public)?;
         let mut deriver = Deriver::new(&private)?;
         deriver.set_peer(&public)?;
@@ -59,12 +76,31 @@ impl Crypto for CryptoImpl {
         Ok(shared_key)
     }
 
-    fn ec_prv_uncompressed_point(raw_key: &[u8]) -> Result<Vec<u8>, Error> {
-        let (_, pub_key_point) = extract_prv_and_pub_from_raw(raw_key)?;
+    fn raw_local_pub_key(&self) -> Result<Vec<u8>, Error> {
+        let (_, pub_key_point) = extract_prv_and_pub_from_raw(&self.raw_local_ec_prv_key)?;
         let mut bn_ctx = BigNumContext::new()?;
         let uncompressed =
             pub_key_point.to_bytes(&GROUP_P256, PointConversionForm::UNCOMPRESSED, &mut bn_ctx)?;
         Ok(uncompressed)
+    }
+
+    fn raw_remote_pub_key(&self) -> Result<Vec<u8>, Error> {
+        Ok(self.raw_remote_ec_pub_key.clone())
+    }
+}
+
+pub struct CryptoImpl;
+impl<'a> Crypto<'a> for CryptoImpl {
+    type PrivateKey = &'a [u8];
+    type PublicKey = &'a [u8];
+    type Keys = KeysImpl;
+
+    fn keys_with_ephemeral_local_keypair(remote_pub_key: Self::PublicKey) -> Result<Self::Keys, Error> {
+        KeysImpl::with_ephemeral_local_keypair(remote_pub_key)
+    }
+
+    fn keys_with_existing_local_keypair(remote_pub_key: Self::PublicKey, local_prv_key: Self::PrivateKey) -> Result<Self::Keys, Error> {
+        Ok(KeysImpl::with_keys(remote_pub_key, local_prv_key))
     }
 
     fn hkdf_sha256(salt: &[u8], secret: &[u8], info: &[u8], len: usize) -> Result<Vec<u8>, Error> {
