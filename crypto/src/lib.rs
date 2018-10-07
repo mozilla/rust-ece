@@ -5,27 +5,35 @@
 extern crate failure;
 
 pub type Error = failure::Error;
+type Result<T> = std::result::Result<T, Error>;
 
-pub trait Keys {
-    fn compute_ecdh_secret(&self) -> Result<Vec<u8>, Error>;
-    fn raw_remote_pub_key(&self) -> Result<Vec<u8>, Error>;
-    /// Export the local KeyPair public key component in the
-    /// binary uncompressed point representation.
-    fn raw_local_pub_key(&self) -> Result<Vec<u8>, Error>;
+pub trait RemotePublicKey {
+    /// From raw bytes obtained in a HTTP ECE header.
+    fn from_raw(raw: &[u8]) -> Result<Box<Self>>
+    where
+        Self: Sized;
+    fn as_raw(&self) -> Result<Vec<u8>>;
 }
 
-pub trait Crypto<'a> {
-    type PrivateKey;
-    type PublicKey;
-    type Keys: Keys;
-    fn keys_with_ephemeral_local_keypair(remote_pub_key: Self::PublicKey) -> Result<Self::Keys, Error>;
-    fn keys_with_existing_local_keypair(remote_pub_key: Self::PublicKey, local_prv_key: Self::PrivateKey) -> Result<Self::Keys, Error>;
-    fn hkdf_sha256(salt: &[u8], secret: &[u8], info: &[u8], len: usize) -> Result<Vec<u8>, Error>;
-    fn aes_gcm_128_decrypt(
-        key: &[u8],
-        iv: &[u8],
-        data: &[u8],
-        tag: &[u8],
-    ) -> Result<Vec<u8>, Error>;
-    // TODO: encrypt
+pub trait LocalKeyPair {
+    fn generate_ephemeral() -> Result<Box<Self>>
+    where
+        Self: Sized;
+    /// Export the public key component in the
+    /// binary uncompressed point representation.
+    fn pub_as_raw(&self) -> Result<Vec<u8>>;
+}
+
+pub trait Crypto {
+    type RemotePublicKey: RemotePublicKey;
+    type LocalKeyPair: LocalKeyPair;
+    fn compute_ecdh_secret(
+        remote: &Self::RemotePublicKey,
+        local: &Self::LocalKeyPair,
+    ) -> Result<Vec<u8>>;
+    fn hkdf_sha256(salt: &[u8], secret: &[u8], info: &[u8], len: usize) -> Result<Vec<u8>>;
+    /// Should return [ciphertext, auth_tag].
+    fn aes_gcm_128_encrypt(key: &[u8], iv: &[u8], data: &[u8], tag_len: usize) -> Result<Vec<u8>>;
+    fn aes_gcm_128_decrypt(key: &[u8], iv: &[u8], data: &[u8], tag: &[u8]) -> Result<Vec<u8>>;
+    fn random(dest: &mut [u8]) -> Result<()>;
 }

@@ -75,11 +75,17 @@ pub enum ErrorKind {
     #[fail(display = "Zero-length ciphertext")]
     ZeroCiphertext,
 
+    #[fail(display = "Zero-length plaintext")]
+    ZeroPlaintext,
+
     #[fail(display = "Block too short")]
     BlockTooShort,
 
     #[fail(display = "Invalid decryption padding")]
     DecryptPadding,
+
+    #[fail(display = "Invalid encryption padding")]
+    EncryptPadding,
 
     #[fail(display = "Crypto error")]
     CryptoError,
