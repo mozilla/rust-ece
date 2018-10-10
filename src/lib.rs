@@ -29,7 +29,7 @@ pub type Aes128GcmEceWebPush = aes128gcm::Aes128GcmEceWebPush<
 >;
 
 #[cfg(test)]
-mod tests {
+mod aes128gcm_tests {
     extern crate ece_crypto_openssl;
     extern crate hex;
     use super::*;
