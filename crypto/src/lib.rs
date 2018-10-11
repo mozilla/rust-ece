@@ -8,17 +8,10 @@ pub type Error = failure::Error;
 type Result<T> = std::result::Result<T, Error>;
 
 pub trait RemotePublicKey {
-    /// From raw bytes obtained in a HTTP ECE header.
-    fn from_raw(raw: &[u8]) -> Result<Box<Self>>
-    where
-        Self: Sized;
     fn as_raw(&self) -> Result<Vec<u8>>;
 }
 
 pub trait LocalKeyPair {
-    fn generate_ephemeral() -> Result<Box<Self>>
-    where
-        Self: Sized;
     /// Export the public key component in the
     /// binary uncompressed point representation.
     fn pub_as_raw(&self) -> Result<Vec<u8>>;
@@ -27,6 +20,9 @@ pub trait LocalKeyPair {
 pub trait Crypto {
     type RemotePublicKey: RemotePublicKey;
     type LocalKeyPair: LocalKeyPair;
+    /// Construct a `RemotePublicKey` from raw bytes typically obtained in a HTTP ECE header.
+    fn public_key_from_raw(raw: &[u8]) -> Result<Self::RemotePublicKey>;
+    fn generate_ephemeral_keypair() -> Result<Self::LocalKeyPair>;
     fn compute_ecdh_secret(
         remote: &Self::RemotePublicKey,
         local: &Self::LocalKeyPair,

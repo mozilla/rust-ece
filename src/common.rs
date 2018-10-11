@@ -29,10 +29,7 @@ pub enum EceMode {
 pub type KeyAndNonce = (Vec<u8>, Vec<u8>);
 
 pub trait EceWebPush {
-    type Crypto: Crypto<
-        LocalKeyPair = Self::LocalKeyPair,
-        RemotePublicKey = Self::RemotePublicKey,
-    >;
+    type Crypto: Crypto<LocalKeyPair = Self::LocalKeyPair, RemotePublicKey = Self::RemotePublicKey>;
     type LocalKeyPair: LocalKeyPair;
     type RemotePublicKey: RemotePublicKey;
 

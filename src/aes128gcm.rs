@@ -70,7 +70,7 @@ where
         plaintext: &[u8],
         params: WebPushParams,
     ) -> Result<Vec<u8>> {
-        let local_prv_key = *L::generate_ephemeral()?;
+        let local_prv_key = C::generate_ephemeral_keypair()?;
         Self::encrypt_with_keys(
             &local_prv_key,
             remote_pub_key,
@@ -148,15 +148,8 @@ where
             return Err(ErrorKind::ZeroCiphertext.into());
         }
         let ciphertext = &payload[ciphertext_start..];
-        let key = *RemotePublicKey::from_raw(key_id)?;
-        Self::common_decrypt(
-            local_prv_key,
-            &key,
-            auth_secret,
-            salt,
-            rs,
-            ciphertext,
-        )
+        let key = C::public_key_from_raw(key_id)?;
+        Self::common_decrypt(local_prv_key, &key, auth_secret, salt, rs, ciphertext)
     }
 }
 
@@ -221,12 +214,8 @@ where
         // The new "aes128gcm" scheme includes the sender and receiver public keys in
         // the info string when deriving the Web Push IKM.
         let ikm_info = match ece_mode {
-            EceMode::ENCRYPT => {
-                generate_info(&raw_remote_pub_key, &raw_local_pub_key)
-            }
-            EceMode::DECRYPT => {
-                generate_info(&raw_local_pub_key, &raw_remote_pub_key)
-            }
+            EceMode::ENCRYPT => generate_info(&raw_remote_pub_key, &raw_local_pub_key),
+            EceMode::DECRYPT => generate_info(&raw_local_pub_key, &raw_remote_pub_key),
         }?;
         let ikm = Self::Crypto::hkdf_sha256(
             auth_secret,

@@ -29,13 +29,9 @@ type Result<T> = std::result::Result<T, Error>;
 
 pub fn generate_keys() -> Result<(OpenSSLLocalKeyPair, OpenSSLLocalKeyPair)> {
     let local_ec = EcKey::generate(&GROUP_P256)?;
-    let local_key = OpenSSLLocalKeyPair {
-        ec_key: local_ec
-    };
+    let local_key = OpenSSLLocalKeyPair { ec_key: local_ec };
     let remote_ec = EcKey::generate(&GROUP_P256)?;
-    let remote_key = OpenSSLLocalKeyPair {
-        ec_key: remote_ec
-    };
+    let remote_key = OpenSSLLocalKeyPair { ec_key: remote_ec };
     Ok((local_key, remote_key))
 }
 
@@ -53,14 +49,6 @@ impl OpenSSLRemotePublicKey {
 }
 
 impl RemotePublicKey for OpenSSLRemotePublicKey {
-    fn from_raw(raw: &[u8]) -> Result<Box<Self>>
-    where
-        Self: Sized,
-    {
-        Ok(Box::new(OpenSSLRemotePublicKey {
-            raw_pub_key: raw.to_vec(),
-        }))
-    }
     fn as_raw(&self) -> Result<Vec<u8>> {
         Ok(self.raw_pub_key.to_vec())
     }
@@ -86,14 +74,6 @@ impl OpenSSLLocalKeyPair {
 }
 
 impl LocalKeyPair for OpenSSLLocalKeyPair {
-    fn generate_ephemeral() -> Result<Box<Self>>
-    where
-        Self: Sized,
-    {
-        let ec_key = EcKey::generate(&GROUP_P256)?;
-        Ok(Box::new(OpenSSLLocalKeyPair { ec_key }))
-    }
-
     fn pub_as_raw(&self) -> Result<Vec<u8>> {
         let pub_key_point = self.ec_key.public_key();
         let mut bn_ctx = BigNumContext::new()?;
@@ -107,6 +87,17 @@ pub struct OpenSSLCrypto;
 impl Crypto for OpenSSLCrypto {
     type RemotePublicKey = OpenSSLRemotePublicKey;
     type LocalKeyPair = OpenSSLLocalKeyPair;
+
+    fn public_key_from_raw(raw: &[u8]) -> Result<Self::RemotePublicKey> {
+        Ok(OpenSSLRemotePublicKey {
+            raw_pub_key: raw.to_vec(),
+        })
+    }
+
+    fn generate_ephemeral_keypair() -> Result<Self::LocalKeyPair> {
+        let ec_key = EcKey::generate(&GROUP_P256)?;
+        Ok(OpenSSLLocalKeyPair { ec_key })
+    }
 
     fn compute_ecdh_secret(
         remote: &Self::RemotePublicKey,

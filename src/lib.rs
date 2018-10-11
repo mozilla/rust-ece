@@ -48,7 +48,7 @@ mod aes128gcm_tests {
         let priv_key = hex::decode(priv_key).unwrap();
         let priv_key = OpenSSLLocalKeyPair::new(&priv_key)?;
         let pub_key = hex::decode(pub_key).unwrap();
-        let pub_key = OpenSSLRemotePublicKey::from_raw(&pub_key)?;
+        let pub_key = OpenSSLCrypto::public_key_from_raw(&pub_key)?;
         let auth_secret = hex::decode(auth_secret).unwrap();
         let salt = hex::decode(salt).unwrap();
         let plaintext = plaintext.as_bytes();
@@ -71,13 +71,15 @@ mod aes128gcm_tests {
         let plaintext = Aes128GcmEceWebPush::decrypt(&priv_key, &auth_secret, &payload)?;
         Ok(String::from_utf8(plaintext).unwrap())
     }
+
     #[test]
     fn test_e2e() {
         let (local_key, remote_key) = ece_crypto_openssl::generate_keys().unwrap();
         let plaintext = "When I grow up, I want to be a watermelon".as_bytes();
         let mut auth_secret = vec![0u8; 16];
         OpenSSLCrypto::random(&mut auth_secret).unwrap();
-        let remote_public = *OpenSSLRemotePublicKey::from_raw(&remote_key.pub_as_raw().unwrap()).unwrap();
+        let remote_public =
+            OpenSSLCrypto::public_key_from_raw(&remote_key.pub_as_raw().unwrap()).unwrap();
         let params = WebPushParams::default();
         let ciphertext = Aes128GcmEceWebPush::encrypt_with_keys(
             &local_key,
@@ -85,8 +87,10 @@ mod aes128gcm_tests {
             &auth_secret,
             &plaintext,
             params,
-        ).unwrap();
-        let decrypted = Aes128GcmEceWebPush::decrypt(&remote_key, &auth_secret, &ciphertext).unwrap();
+        )
+        .unwrap();
+        let decrypted =
+            Aes128GcmEceWebPush::decrypt(&remote_key, &auth_secret, &ciphertext).unwrap();
         assert_eq!(decrypted, plaintext);
     }
 
