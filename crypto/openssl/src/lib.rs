@@ -46,6 +46,12 @@ impl OpenSSLRemotePublicKey {
         let ec = EcKey::from_public_key(&GROUP_P256, &point)?;
         PKey::from_ec_key(ec).map_err(|e| e.into())
     }
+
+    pub fn from_raw(raw: &[u8]) -> Self {
+        OpenSSLRemotePublicKey {
+            raw_pub_key: raw.to_vec(),
+        }
+    }
 }
 
 impl RemotePublicKey for OpenSSLRemotePublicKey {
@@ -89,9 +95,7 @@ impl Crypto for OpenSSLCrypto {
     type LocalKeyPair = OpenSSLLocalKeyPair;
 
     fn public_key_from_raw(raw: &[u8]) -> Result<Self::RemotePublicKey> {
-        Ok(OpenSSLRemotePublicKey {
-            raw_pub_key: raw.to_vec(),
-        })
+        Ok(OpenSSLRemotePublicKey::from_raw(raw))
     }
 
     fn generate_ephemeral_keypair() -> Result<Self::LocalKeyPair> {
