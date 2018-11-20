@@ -28,10 +28,8 @@ lazy_static! {
 type Result<T> = std::result::Result<T, Error>;
 
 pub fn generate_keys() -> Result<(OpenSSLLocalKeyPair, OpenSSLLocalKeyPair)> {
-    let local_ec = EcKey::generate(&GROUP_P256)?;
-    let local_key = OpenSSLLocalKeyPair { ec_key: local_ec };
-    let remote_ec = EcKey::generate(&GROUP_P256)?;
-    let remote_key = OpenSSLLocalKeyPair { ec_key: remote_ec };
+    let local_key = OpenSSLLocalKeyPair::generate_random()?;
+    let remote_key = OpenSSLLocalKeyPair::generate_random()?;
     Ok((local_key, remote_key))
 }
 
@@ -74,12 +72,21 @@ impl OpenSSLLocalKeyPair {
         Ok(OpenSSLLocalKeyPair { ec_key })
     }
 
+    pub fn to_raw(&self) -> Vec<u8> {
+        self.ec_key.private_key().to_vec()
+    }
+
     fn to_pkey(&self) -> Result<PKey<Private>> {
         PKey::from_ec_key(self.ec_key.clone()).map_err(|e| e.into())
     }
 }
 
 impl LocalKeyPair for OpenSSLLocalKeyPair {
+    fn generate_random() -> Result<Self> {
+        let ec_key = EcKey::generate(&GROUP_P256)?;
+        Ok(OpenSSLLocalKeyPair { ec_key })
+    }
+
     fn pub_as_raw(&self) -> Result<Vec<u8>> {
         let pub_key_point = self.ec_key.public_key();
         let mut bn_ctx = BigNumContext::new()?;
@@ -99,8 +106,7 @@ impl Crypto for OpenSSLCrypto {
     }
 
     fn generate_ephemeral_keypair() -> Result<Self::LocalKeyPair> {
-        let ec_key = EcKey::generate(&GROUP_P256)?;
-        Ok(OpenSSLLocalKeyPair { ec_key })
+        Self::LocalKeyPair::generate_random()
     }
 
     fn compute_ecdh_secret(
