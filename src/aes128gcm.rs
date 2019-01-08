@@ -9,44 +9,15 @@ use error::*;
 
 const ECE_AES128GCM_MIN_RS: u32 = 18;
 const ECE_AES128GCM_HEADER_LENGTH: usize = 21;
-const ECE_AES128GCM_MAX_KEY_ID_LENGTH: usize = 255;
+//const ECE_AES128GCM_MAX_KEY_ID_LENGTH: usize = 255;
 const ECE_AES128GCM_PAD_SIZE: usize = 1;
 
 const ECE_WEBPUSH_AES128GCM_IKM_INFO_PREFIX: &'static str = "WebPush: info\0";
 const ECE_WEBPUSH_AES128GCM_IKM_INFO_LENGTH: usize = 144; // 14 (prefix len) + 65 (pub key len) * 2;
 
-const ECE_WEBPUSH_DEFAULT_RS: u32 = 4096;
 const ECE_WEBPUSH_IKM_LENGTH: usize = 32;
 const ECE_AES128GCM_KEY_INFO: &'static str = "Content-Encoding: aes128gcm\0";
 const ECE_AES128GCM_NONCE_INFO: &'static str = "Content-Encoding: nonce\0";
-
-// TODO: Make it nicer to use with a builder pattern.
-pub struct WebPushParams {
-    pub rs: u32,
-    pub pad_length: usize,
-    pub salt: Option<Vec<u8>>,
-}
-
-impl WebPushParams {
-    /// Random salt, record size = 4096 and padding length = 0.
-    pub fn default() -> Self {
-        Self {
-            rs: ECE_WEBPUSH_DEFAULT_RS,
-            pad_length: 0,
-            salt: None,
-        }
-    }
-
-    /// Never use the same salt twice as it will derive the same content encryption
-    /// key for multiple messages if the same sender private key is used!
-    pub fn new(rs: u32, pad_length: usize, salt: Vec<u8>) -> Self {
-        Self {
-            rs,
-            pad_length,
-            salt: Some(salt),
-        }
-    }
-}
 
 // TODO: When done, remove the aes128gcm prefixes and the EC_ ones.
 // As for now it makes it easier to Ctrl + F into ecec :)

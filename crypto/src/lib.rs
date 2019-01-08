@@ -12,7 +12,9 @@ pub trait RemotePublicKey {
 }
 
 pub trait LocalKeyPair {
-    fn generate_random() -> Result<Self> where Self: Sized;
+    fn generate_random() -> Result<Self>
+    where
+        Self: Sized;
     /// Export the public key component in the
     /// binary uncompressed point representation.
     fn pub_as_raw(&self) -> Result<Vec<u8>>;
