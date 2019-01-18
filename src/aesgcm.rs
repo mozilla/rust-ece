@@ -21,10 +21,9 @@ use error::{ErrorKind, Result};
 
 const ECE_AESGCM_PAD_SIZE: usize = 2;
 
-const ECE_WEBPUSH_AESGCM_KEYPAIR_LENGTH: usize = 134; // (2 + 65) * 2
-const ECE_WEBPUSH_AESGCM_AUTHINFO: &'static str = "Content-Encoding: auth\0";
+const ECE_WEBPUSH_AESGCM_KEYPAIR_LENGTH: usize = 134; // (2 + Raw Key Length) * 2
+const ECE_WEBPUSH_AESGCM_AUTHINFO: &str = "Content-Encoding: auth\0";
 
-// const ECE_WEBPUSH_DEFAULT_RS: u32 = 4096;
 // a DER prefixed key is "\04" + ECE_WEBPUSH_RAW_KEY_LENGTH
 const ECE_WEBPUSH_RAW_KEY_LENGTH: usize = 65;
 const ECE_WEBPUSH_IKM_LENGTH: usize = 32;
@@ -52,8 +51,8 @@ impl AesGcmEncryptedBlock {
         ciphertext: Vec<u8>,
     ) -> Result<AesGcmEncryptedBlock> {
         Ok(AesGcmEncryptedBlock {
-            dh: dh.clone(),
-            salt: salt.clone(),
+            dh: dh.to_owned(),
+            salt: salt.to_owned(),
             rs: Self::aesgcm_rs(rs),
             ciphertext,
         })
@@ -147,7 +146,7 @@ where
             plaintext,
         )?;
         Ok(AesGcmEncryptedBlock {
-            salt: salt,
+            salt,
             dh: raw_local_pub_key,
             rs: params.rs,
             ciphertext,

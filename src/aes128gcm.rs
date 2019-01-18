@@ -9,15 +9,17 @@ use error::*;
 
 const ECE_AES128GCM_MIN_RS: u32 = 18;
 const ECE_AES128GCM_HEADER_LENGTH: usize = 21;
-//const ECE_AES128GCM_MAX_KEY_ID_LENGTH: usize = 255;
+// The max AES128GCM Key ID Length is 255 octets. We use far less of that because we use
+// the "key_id" to store the exchanged public key since we don't cache the key_ids.
+// Code fails if the key_id is not a public key length field.
 const ECE_AES128GCM_PAD_SIZE: usize = 1;
 
-const ECE_WEBPUSH_AES128GCM_IKM_INFO_PREFIX: &'static str = "WebPush: info\0";
+const ECE_WEBPUSH_AES128GCM_IKM_INFO_PREFIX: &str = "WebPush: info\0";
 const ECE_WEBPUSH_AES128GCM_IKM_INFO_LENGTH: usize = 144; // 14 (prefix len) + 65 (pub key len) * 2;
 
 const ECE_WEBPUSH_IKM_LENGTH: usize = 32;
-const ECE_AES128GCM_KEY_INFO: &'static str = "Content-Encoding: aes128gcm\0";
-const ECE_AES128GCM_NONCE_INFO: &'static str = "Content-Encoding: nonce\0";
+const ECE_AES128GCM_KEY_INFO: &str = "Content-Encoding: aes128gcm\0";
+const ECE_AES128GCM_NONCE_INFO: &str = "Content-Encoding: nonce\0";
 
 // TODO: When done, remove the aes128gcm prefixes and the EC_ ones.
 // As for now it makes it easier to Ctrl + F into ecec :)

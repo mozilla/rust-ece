@@ -74,7 +74,7 @@ pub trait EceWebPush {
         if salt.len() != ECE_SALT_LENGTH {
             return Err(ErrorKind::InvalidSalt.into());
         }
-        if plaintext.len() == 0 {
+        if plaintext.is_empty() {
             return Err(ErrorKind::ZeroPlaintext.into());
         }
         let (key, nonce) = Self::derive_key_and_nonce(
@@ -169,7 +169,7 @@ pub trait EceWebPush {
         if salt.len() != ECE_SALT_LENGTH {
             return Err(ErrorKind::InvalidSalt.into());
         }
-        if ciphertext.len() == 0 {
+        if ciphertext.is_empty() {
             return Err(ErrorKind::ZeroCiphertext.into());
         }
         if Self::needs_trailer(rs, ciphertext.len()) {
@@ -235,11 +235,11 @@ pub fn ece_min_block_pad_length(pad_len: usize, max_block_len: usize) -> usize {
         // the padding first.
         block_pad_len += 1;
     }
-    return if block_pad_len > pad_len {
+    if block_pad_len > pad_len {
         pad_len
     } else {
         block_pad_len
-    };
+    }
 }
 
 /// Generates a 96-bit IV, 48 bits of which are populated.

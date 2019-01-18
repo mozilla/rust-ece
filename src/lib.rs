@@ -6,7 +6,6 @@ extern crate base64;
 extern crate byteorder;
 extern crate ece_crypto;
 extern crate failure;
-// #[macro_use]
 extern crate failure_derive;
 
 mod aes128gcm;
@@ -30,6 +29,7 @@ pub type Aes128GcmEceWebPush = aes128gcm::Aes128GcmEceWebPush<
     ece_crypto_openssl::OpenSSLCrypto,
 >;
 
+#[cfg(feature = "openssl")]
 pub type AesGcmEceWebPush = aesgcm::AesGcmEceWebPush<
     OpenSSLLocalKeyPair,
     OpenSSLRemotePublicKey,
