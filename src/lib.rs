@@ -14,6 +14,7 @@ mod aesgcm;
 mod common;
 mod error;
 
+pub use aesgcm::AesGcmEncryptedBlock;
 pub use common::WebPushParams;
 pub use ece_crypto::{LocalKeyPair, RemotePublicKey};
 pub use error::*;
@@ -244,6 +245,7 @@ mod aes128gcm_tests {
 // =====================
 #[cfg(test)]
 mod aesgcm_tests {
+    extern crate base64;
     extern crate ece_crypto_openssl;
     extern crate hex;
 
@@ -283,7 +285,13 @@ mod aesgcm_tests {
             base64::URL_SAFE_NO_PAD).unwrap();
         let plaintext = "Amidst the mists and coldest frosts I thrust my fists against the\nposts and still demand to see the ghosts.\n";
 
-        let block = AesGcmEncryptedBlock::new(dh, salt, 4096, ciphertext).unwrap();
+        let block = AesGcmEncryptedBlock::new(
+            &base64::decode_config(dh, base64::URL_SAFE_NO_PAD).unwrap(),
+            &base64::decode_config(salt, base64::URL_SAFE_NO_PAD).unwrap(),
+            4096,
+            ciphertext,
+        )
+        .unwrap();
 
         let result = try_decrypt(priv_key_raw, auth_raw, &block).unwrap();
 

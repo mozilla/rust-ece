@@ -96,6 +96,12 @@ impl LocalKeyPair for OpenSSLLocalKeyPair {
     }
 }
 
+impl From<EcKey<Private>> for OpenSSLLocalKeyPair {
+    fn from(key: EcKey<Private>) -> OpenSSLLocalKeyPair {
+        OpenSSLLocalKeyPair { ec_key: key }
+    }
+}
+
 pub struct OpenSSLCrypto;
 impl Crypto for OpenSSLCrypto {
     type RemotePublicKey = OpenSSLRemotePublicKey;

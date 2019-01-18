@@ -45,10 +45,15 @@ impl AesGcmEncryptedBlock {
     }
 
     /// Create a new block from the various header strings and body content.
-    pub fn new(dh: &str, salt: &str, rs: u32, ciphertext: Vec<u8>) -> Result<AesGcmEncryptedBlock> {
+    pub fn new(
+        dh: &Vec<u8>,
+        salt: &Vec<u8>,
+        rs: u32,
+        ciphertext: Vec<u8>,
+    ) -> Result<AesGcmEncryptedBlock> {
         Ok(AesGcmEncryptedBlock {
-            dh: base64::decode_config(&dh, base64::URL_SAFE_NO_PAD)?,
-            salt: base64::decode_config(&salt, base64::URL_SAFE_NO_PAD)?,
+            dh: dh.clone(),
+            salt: salt.clone(),
             rs: Self::aesgcm_rs(rs),
             ciphertext,
         })
