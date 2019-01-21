@@ -2,16 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-extern crate base64;
-extern crate byteorder;
-extern crate failure;
-extern crate failure_derive;
-extern crate hkdf;
-#[macro_use]
-extern crate lazy_static;
-extern crate openssl;
-extern crate sha2;
-
 mod aes128gcm;
 mod aesgcm;
 mod common;
@@ -19,15 +9,17 @@ mod crypto_backend;
 mod crypto_backends;
 mod error;
 
+pub use crate::{
+    crypto_backend::{LocalKeyPair, RemotePublicKey},
+    error::*,
+};
 pub use aes128gcm::Aes128GcmEceWebPush;
 pub use aesgcm::{AesGcmEceWebPush, AesGcmEncryptedBlock};
 pub use common::WebPushParams;
-pub use crypto_backend::{LocalKeyPair, RemotePublicKey};
-pub use error::*;
 
 pub type Aes128GcmEceWebPushImpl = aes128gcm::Aes128GcmEceWebPush<crypto_backends::CryptoImpl>;
 pub type AesGcmEceWebPushImpl = aesgcm::AesGcmEceWebPush<crypto_backends::CryptoImpl>;
-pub use crypto_backends::{LocalKeyPairImpl, RemoteKeyPairImpl};
+pub use crate::crypto_backends::{LocalKeyPairImpl, RemoteKeyPairImpl};
 
 #[cfg(test)]
 mod aes128gcm_tests {

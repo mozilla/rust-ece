@@ -2,16 +2,21 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crypto_backend::{Crypto, LocalKeyPair, RemotePublicKey};
-use error::*;
+use crate::{
+    crypto_backend::{Crypto, LocalKeyPair, RemotePublicKey},
+    error::*,
+};
 use hkdf::Hkdf;
-use openssl::bn::{BigNum, BigNumContext};
-use openssl::derive::Deriver;
-use openssl::ec::{EcGroup, EcKey, EcPoint, PointConversionForm};
-use openssl::nid::Nid;
-use openssl::pkey::{PKey, Private, Public};
-use openssl::rand::rand_bytes;
-use openssl::symm::{Cipher, Crypter, Mode};
+use lazy_static::lazy_static;
+use openssl::{
+    bn::{BigNum, BigNumContext},
+    derive::Deriver,
+    ec::{EcGroup, EcKey, EcPoint, PointConversionForm},
+    nid::Nid,
+    pkey::{PKey, Private, Public},
+    rand::rand_bytes,
+    symm::{Cipher, Crypter, Mode},
+};
 use sha2::Sha256;
 
 lazy_static! {

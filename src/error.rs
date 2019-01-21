@@ -2,10 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use base64;
 use failure::{Backtrace, Context, Fail};
-use std::boxed::Box;
-use std::{fmt, result};
+use std::{boxed::Box, fmt, result};
 
 pub type Result<T> = result::Result<T, Error>;
 
