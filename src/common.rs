@@ -2,9 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use crate::{crypto_backend::Crypto, error::*};
 use byteorder::{BigEndian, ByteOrder};
-use crypto_backend::Crypto;
-use error::*;
 use std::cmp::min;
 
 // From keys.h:
