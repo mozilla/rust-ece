@@ -3,7 +3,6 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use base64;
-use ece_crypto;
 use failure::{Backtrace, Context, Fail};
 use std::boxed::Box;
 use std::{fmt, result};
@@ -88,27 +87,12 @@ pub enum ErrorKind {
     #[fail(display = "Invalid encryption padding")]
     EncryptPadding,
 
-    #[fail(display = "Crypto error")]
-    CryptoError,
-
     #[fail(display = "Could not decode base64 entry")]
     DecodeError,
-}
 
-// This is bad design, however handling cross-crates errors
-// with failure is a pain and I spent too much time on this already.
-impl From<ece_crypto::Error> for ErrorKind {
-    #[inline]
-    fn from(_: ece_crypto::Error) -> ErrorKind {
-        ErrorKind::CryptoError
-    }
-}
-
-impl From<ece_crypto::Error> for Error {
-    #[inline]
-    fn from(e: ece_crypto::Error) -> Error {
-        ErrorKind::from(e).into()
-    }
+    #[cfg(feature = "backend-openssl")]
+    #[fail(display = "OpenSSL error: {}", _0)]
+    OpenSSLError(#[fail(cause)] openssl::error::ErrorStack),
 }
 
 impl From<base64::DecodeError> for Error {
@@ -116,4 +100,27 @@ impl From<base64::DecodeError> for Error {
     fn from(_: base64::DecodeError) -> Error {
         ErrorKind::DecodeError.into()
     }
+}
+
+macro_rules! impl_from_error {
+    ($(($variant:ident, $type:ty)),+) => ($(
+        impl From<$type> for ErrorKind {
+            #[inline]
+            fn from(e: $type) -> ErrorKind {
+                ErrorKind::$variant(e)
+            }
+        }
+
+        impl From<$type> for Error {
+            #[inline]
+            fn from(e: $type) -> Error {
+                ErrorKind::from(e).into()
+            }
+        }
+    )*);
+}
+
+#[cfg(feature = "backend-openssl")]
+impl_from_error! {
+    (OpenSSLError, ::openssl::error::ErrorStack)
 }

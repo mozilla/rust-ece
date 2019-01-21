@@ -1,9 +1,0 @@
-[package]
-name = "ece-crypto"
-version = "0.1.0"
-authors = ["Edouard Oger <eoger@fastmail.com>"]
-license = "MPL-2.0"
-
-[dependencies]
-failure = "0.1.5"
-base64 = "0.10"

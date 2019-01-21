@@ -4,45 +4,43 @@
 
 extern crate base64;
 extern crate byteorder;
-extern crate ece_crypto;
 extern crate failure;
 extern crate failure_derive;
+extern crate hkdf;
+#[macro_use]
+extern crate lazy_static;
+extern crate openssl;
+extern crate sha2;
 
 mod aes128gcm;
 mod aesgcm;
 mod common;
+mod crypto_backend;
+mod crypto_backends;
 mod error;
 
-pub use aesgcm::AesGcmEncryptedBlock;
+pub use aes128gcm::Aes128GcmEceWebPush;
+pub use aesgcm::{AesGcmEceWebPush, AesGcmEncryptedBlock};
 pub use common::WebPushParams;
-pub use ece_crypto::{LocalKeyPair, RemotePublicKey};
+pub use crypto_backend::{LocalKeyPair, RemotePublicKey};
 pub use error::*;
 
-#[cfg(feature = "openssl")]
-extern crate ece_crypto_openssl;
-#[cfg(feature = "openssl")]
-pub use ece_crypto_openssl::{OpenSSLLocalKeyPair, OpenSSLRemotePublicKey};
-#[cfg(feature = "openssl")]
-pub type Aes128GcmEceWebPush = aes128gcm::Aes128GcmEceWebPush<
-    OpenSSLLocalKeyPair,
-    OpenSSLRemotePublicKey,
-    ece_crypto_openssl::OpenSSLCrypto,
->;
-
-#[cfg(feature = "openssl")]
-pub type AesGcmEceWebPush = aesgcm::AesGcmEceWebPush<
-    OpenSSLLocalKeyPair,
-    OpenSSLRemotePublicKey,
-    ece_crypto_openssl::OpenSSLCrypto,
->;
+pub type Aes128GcmEceWebPushImpl = aes128gcm::Aes128GcmEceWebPush<crypto_backends::CryptoImpl>;
+pub type AesGcmEceWebPushImpl = aesgcm::AesGcmEceWebPush<crypto_backends::CryptoImpl>;
+pub use crypto_backends::{LocalKeyPairImpl, RemoteKeyPairImpl};
 
 #[cfg(test)]
 mod aes128gcm_tests {
-    extern crate ece_crypto_openssl;
     extern crate hex;
+    use super::crypto_backend::Crypto;
+    use super::crypto_backends::CryptoImpl;
     use super::*;
-    use ece_crypto::Crypto;
-    use ece_crypto_openssl::OpenSSLCrypto;
+
+    fn generate_keys() -> Result<(LocalKeyPairImpl, LocalKeyPairImpl)> {
+        let local_key = LocalKeyPairImpl::generate_random()?;
+        let remote_key = LocalKeyPairImpl::generate_random()?;
+        Ok((local_key, remote_key))
+    }
 
     fn try_encrypt(
         priv_key: &str,
@@ -54,14 +52,14 @@ mod aes128gcm_tests {
         plaintext: &str,
     ) -> Result<String> {
         let priv_key = hex::decode(priv_key).unwrap();
-        let priv_key = OpenSSLLocalKeyPair::new(&priv_key)?;
+        let priv_key = LocalKeyPairImpl::new(&priv_key)?;
         let pub_key = hex::decode(pub_key).unwrap();
-        let pub_key = OpenSSLCrypto::public_key_from_raw(&pub_key)?;
+        let pub_key = CryptoImpl::public_key_from_raw(&pub_key)?;
         let auth_secret = hex::decode(auth_secret).unwrap();
         let salt = hex::decode(salt).unwrap();
         let plaintext = plaintext.as_bytes();
         let params = WebPushParams::new(rs, pad_length, salt);
-        let ciphertext = Aes128GcmEceWebPush::encrypt_with_keys(
+        let ciphertext = Aes128GcmEceWebPushImpl::encrypt_with_keys(
             &priv_key,
             &pub_key,
             &auth_secret,
@@ -73,23 +71,23 @@ mod aes128gcm_tests {
 
     fn try_decrypt(priv_key: &str, auth_secret: &str, payload: &str) -> Result<String> {
         let priv_key = hex::decode(priv_key).unwrap();
-        let priv_key = OpenSSLLocalKeyPair::new(&priv_key)?;
+        let priv_key = LocalKeyPairImpl::new(&priv_key)?;
         let auth_secret = hex::decode(auth_secret).unwrap();
         let payload = hex::decode(payload).unwrap();
-        let plaintext = Aes128GcmEceWebPush::decrypt(&priv_key, &auth_secret, &payload)?;
+        let plaintext = Aes128GcmEceWebPushImpl::decrypt(&priv_key, &auth_secret, &payload)?;
         Ok(String::from_utf8(plaintext).unwrap())
     }
 
     #[test]
     fn test_e2e() {
-        let (local_key, remote_key) = ece_crypto_openssl::generate_keys().unwrap();
+        let (local_key, remote_key) = generate_keys().unwrap();
         let plaintext = "When I grow up, I want to be a watermelon".as_bytes();
         let mut auth_secret = vec![0u8; 16];
-        OpenSSLCrypto::random(&mut auth_secret).unwrap();
+        CryptoImpl::random(&mut auth_secret).unwrap();
         let remote_public =
-            OpenSSLCrypto::public_key_from_raw(&remote_key.pub_as_raw().unwrap()).unwrap();
+            CryptoImpl::public_key_from_raw(&remote_key.pub_as_raw().unwrap()).unwrap();
         let params = WebPushParams::default();
-        let ciphertext = Aes128GcmEceWebPush::encrypt_with_keys(
+        let ciphertext = Aes128GcmEceWebPushImpl::encrypt_with_keys(
             &local_key,
             &remote_public,
             &auth_secret,
@@ -98,7 +96,7 @@ mod aes128gcm_tests {
         )
         .unwrap();
         let decrypted =
-            Aes128GcmEceWebPush::decrypt(&remote_key, &auth_secret, &ciphertext).unwrap();
+            Aes128GcmEceWebPushImpl::decrypt(&remote_key, &auth_secret, &ciphertext).unwrap();
         assert_eq!(decrypted, plaintext);
     }
 
@@ -223,7 +221,7 @@ mod aes128gcm_tests {
             "8115f4988b8c392a7bacb43c8f1ac5650000001241041994483c541e9bc39a6af03ff713aa7745c284e138a42a2435b797b20c4b698cf5118b4f8555317c190eabebfab749c164d3f6bdebe0d441719131a357d8890a13c4dbd4b16ff3dd5a83f7c91ad6e040ac42730a7f0b3cd3245e9f8d6ff31c751d410cfd"
         ).unwrap_err();
         match err.kind() {
-            ErrorKind::CryptoError => {}
+            ErrorKind::OpenSSLError(_) => {}
             _ => assert!(false),
         };
     }
@@ -246,13 +244,17 @@ mod aes128gcm_tests {
 #[cfg(test)]
 mod aesgcm_tests {
     extern crate base64;
-    extern crate ece_crypto_openssl;
     extern crate hex;
 
+    use super::crypto_backend::Crypto;
+    use super::crypto_backends::CryptoImpl;
     use super::*;
-    use aesgcm::AesGcmEncryptedBlock;
-    use ece_crypto::Crypto;
-    use ece_crypto_openssl::OpenSSLCrypto;
+
+    fn generate_keys() -> Result<(LocalKeyPairImpl, LocalKeyPairImpl)> {
+        let local_key = LocalKeyPairImpl::generate_random()?;
+        let remote_key = LocalKeyPairImpl::generate_random()?;
+        Ok((local_key, remote_key))
+    }
 
     fn try_decrypt(
         priv_key: &str,
@@ -263,9 +265,9 @@ mod aesgcm_tests {
         // The Block will attempt to decode the base64 strings for dh & salt, so no additional action needed.
         // Since the body is most likely not encoded, it is expected to be a raw buffer of [u8]
         let priv_key_raw = base64::decode_config(priv_key, base64::URL_SAFE_NO_PAD)?;
-        let priv_key = OpenSSLLocalKeyPair::new(&priv_key_raw)?;
+        let priv_key = LocalKeyPairImpl::new(&priv_key_raw)?;
         let auth_secret = base64::decode_config(auth_secret, base64::URL_SAFE_NO_PAD)?;
-        let plaintext = AesGcmEceWebPush::decrypt(&priv_key, &auth_secret, &block)?;
+        let plaintext = AesGcmEceWebPushImpl::decrypt(&priv_key, &auth_secret, &block)?;
         Ok(String::from_utf8(plaintext).unwrap())
     }
 
@@ -300,14 +302,14 @@ mod aesgcm_tests {
 
     #[test]
     fn test_e2e() {
-        let (local_key, remote_key) = ece_crypto_openssl::generate_keys().unwrap();
+        let (local_key, remote_key) = generate_keys().unwrap();
         let plaintext = "When I grow up, I want to be a watermelon".as_bytes();
         let mut auth_secret = vec![0u8; 16];
-        OpenSSLCrypto::random(&mut auth_secret).unwrap();
+        CryptoImpl::random(&mut auth_secret).unwrap();
         let remote_public =
-            OpenSSLCrypto::public_key_from_raw(&remote_key.pub_as_raw().unwrap()).unwrap();
+            CryptoImpl::public_key_from_raw(&remote_key.pub_as_raw().unwrap()).unwrap();
         let params = WebPushParams::default();
-        let ciphertext = AesGcmEceWebPush::encrypt_with_keys(
+        let ciphertext = AesGcmEceWebPushImpl::encrypt_with_keys(
             &local_key,
             &remote_public,
             &auth_secret,
@@ -315,7 +317,8 @@ mod aesgcm_tests {
             params,
         )
         .unwrap();
-        let decrypted = AesGcmEceWebPush::decrypt(&remote_key, &auth_secret, &ciphertext).unwrap();
+        let decrypted =
+            AesGcmEceWebPushImpl::decrypt(&remote_key, &auth_secret, &ciphertext).unwrap();
         assert_eq!(decrypted, plaintext);
     }
 
