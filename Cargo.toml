@@ -9,17 +9,14 @@ byteorder = "1.2.7"
 failure = "0.1.5"
 failure_derive = "0.1.5"
 base64 = "0.10"
-
-[dependencies.ece-crypto]
-path = "crypto"
-
-[dependencies.ece-crypto-openssl]
-path = "crypto/openssl"
-optional = true
+hkdf = { version = "0.6", optional = true }
+lazy_static = { version = "1.1.0", optional = true }
+openssl = { version = "0.10", optional = true }
+sha2 = { version = "0.7", optional = true }
 
 [dev-dependencies]
 hex = "0.3.2"
 
 [features]
-default = ["openssl"]
-openssl = ["ece-crypto-openssl"]
+default = ["backend-openssl"]
+backend-openssl = ["openssl", "lazy_static", "hkdf", "sha2"]

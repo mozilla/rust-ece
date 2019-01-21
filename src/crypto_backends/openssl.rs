@@ -2,15 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-extern crate ece_crypto;
-extern crate hkdf;
-#[macro_use]
-extern crate lazy_static;
-extern crate openssl;
-extern crate sha2;
-
-use ece_crypto::*;
-
+use crypto_backend::{Crypto, LocalKeyPair, RemotePublicKey};
+use error::*;
 use hkdf::Hkdf;
 use openssl::bn::{BigNum, BigNumContext};
 use openssl::derive::Deriver;
@@ -23,14 +16,6 @@ use sha2::Sha256;
 
 lazy_static! {
     static ref GROUP_P256: EcGroup = EcGroup::from_curve_name(Nid::X9_62_PRIME256V1).unwrap();
-}
-
-type Result<T> = std::result::Result<T, Error>;
-
-pub fn generate_keys() -> Result<(OpenSSLLocalKeyPair, OpenSSLLocalKeyPair)> {
-    let local_key = OpenSSLLocalKeyPair::generate_random()?;
-    let remote_key = OpenSSLLocalKeyPair::generate_random()?;
-    Ok((local_key, remote_key))
 }
 
 pub struct OpenSSLRemotePublicKey {
@@ -82,11 +67,14 @@ impl OpenSSLLocalKeyPair {
 }
 
 impl LocalKeyPair for OpenSSLLocalKeyPair {
+    /// Generate a random local key pair using OpenSSL `ECKey::generate`.
     fn generate_random() -> Result<Self> {
         let ec_key = EcKey::generate(&GROUP_P256)?;
         Ok(OpenSSLLocalKeyPair { ec_key })
     }
 
+    /// Export the public key component in the binary uncompressed point representation
+    /// using OpenSSL `PointConversionForm::UNCOMPRESSED`.
     fn pub_as_raw(&self) -> Result<Vec<u8>> {
         let pub_key_point = self.ec_key.public_key();
         let mut bn_ctx = BigNumContext::new()?;

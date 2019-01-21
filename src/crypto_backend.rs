@@ -2,16 +2,16 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-extern crate failure;
-
-pub type Error = failure::Error;
-type Result<T> = std::result::Result<T, Error>;
+use error::*;
 
 pub trait RemotePublicKey {
+    /// Export the key component in the
+    /// binary uncompressed point representation.
     fn as_raw(&self) -> Result<Vec<u8>>;
 }
 
 pub trait LocalKeyPair {
+    /// Generate a random local key pair.
     fn generate_random() -> Result<Self>
     where
         Self: Sized;
@@ -20,7 +20,7 @@ pub trait LocalKeyPair {
     fn pub_as_raw(&self) -> Result<Vec<u8>>;
 }
 
-pub trait Crypto {
+pub trait Crypto: Sized {
     type RemotePublicKey: RemotePublicKey;
     type LocalKeyPair: LocalKeyPair;
     /// Construct a `RemotePublicKey` from raw bytes typically obtained in a HTTP ECE header.
