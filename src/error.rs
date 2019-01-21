@@ -2,6 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use base64;
 use ece_crypto;
 use failure::{Backtrace, Context, Fail};
 use std::boxed::Box;
@@ -89,6 +90,9 @@ pub enum ErrorKind {
 
     #[fail(display = "Crypto error")]
     CryptoError,
+
+    #[fail(display = "Could not decode base64 entry")]
+    DecodeError,
 }
 
 // This is bad design, however handling cross-crates errors
@@ -104,5 +108,12 @@ impl From<ece_crypto::Error> for Error {
     #[inline]
     fn from(e: ece_crypto::Error) -> Error {
         ErrorKind::from(e).into()
+    }
+}
+
+impl From<base64::DecodeError> for Error {
+    #[inline]
+    fn from(_: base64::DecodeError) -> Error {
+        ErrorKind::DecodeError.into()
     }
 }

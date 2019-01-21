@@ -5,9 +5,10 @@ authors = ["Edouard Oger <eoger@fastmail.com>"]
 license = "MPL-2.0"
 
 [dependencies]
-byteorder = "1.2.6"
-failure = "0.1.2"
-failure_derive = "0.1.2"
+byteorder = "1.2.7"
+failure = "0.1.5"
+failure_derive = "0.1.5"
+base64 = "0.10"
 
 [dependencies.ece-crypto]
 path = "crypto"

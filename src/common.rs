@@ -13,13 +13,39 @@ pub const ECE_NONCE_LENGTH: usize = 12;
 
 // From ece.h:
 pub const ECE_SALT_LENGTH: usize = 16;
-const ECE_TAG_LENGTH: usize = 16;
-const ECE_WEBPUSH_PRIVATE_KEY_LENGTH: usize = 32;
+pub const ECE_TAG_LENGTH: usize = 16;
+//const ECE_WEBPUSH_PRIVATE_KEY_LENGTH: usize = 32;
 pub const ECE_WEBPUSH_PUBLIC_KEY_LENGTH: usize = 65;
 const ECE_WEBPUSH_AUTH_SECRET_LENGTH: usize = 16;
+const ECE_WEBPUSH_DEFAULT_RS: u32 = 4096;
 
-const ECE_AESGCM_MIN_RS: u8 = 3;
-const ECE_AESGCM_PAD_SIZE: u8 = 2;
+// TODO: Make it nicer to use with a builder pattern.
+pub struct WebPushParams {
+    pub rs: u32,
+    pub pad_length: usize,
+    pub salt: Option<Vec<u8>>,
+}
+
+impl WebPushParams {
+    /// Random salt, record size = 4096 and padding length = 0.
+    pub fn default() -> Self {
+        Self {
+            rs: ECE_WEBPUSH_DEFAULT_RS,
+            pad_length: 2,
+            salt: None,
+        }
+    }
+
+    /// Never use the same salt twice as it will derive the same content encryption
+    /// key for multiple messages if the same sender private key is used!
+    pub fn new(rs: u32, pad_length: usize, salt: Vec<u8>) -> Self {
+        Self {
+            rs,
+            pad_length,
+            salt: Some(salt),
+        }
+    }
+}
 
 pub enum EceMode {
     ENCRYPT,
@@ -48,7 +74,7 @@ pub trait EceWebPush {
         if salt.len() != ECE_SALT_LENGTH {
             return Err(ErrorKind::InvalidSalt.into());
         }
-        if plaintext.len() == 0 {
+        if plaintext.is_empty() {
             return Err(ErrorKind::ZeroPlaintext.into());
         }
         let (key, nonce) = Self::derive_key_and_nonce(
@@ -143,7 +169,7 @@ pub trait EceWebPush {
         if salt.len() != ECE_SALT_LENGTH {
             return Err(ErrorKind::InvalidSalt.into());
         }
-        if ciphertext.len() == 0 {
+        if ciphertext.is_empty() {
             return Err(ErrorKind::ZeroCiphertext.into());
         }
         if Self::needs_trailer(rs, ciphertext.len()) {
@@ -170,6 +196,7 @@ pub trait EceWebPush {
                 let block_len = record.len() - ECE_TAG_LENGTH;
                 let data = &record[0..block_len];
                 let tag = &record[block_len..];
+                // when this fails, it's always "OpenSSL error"
                 let plaintext = Self::Crypto::aes_gcm_128_decrypt(&key, &iv, data, tag)?;
                 let last_record = count == records_count - 1;
                 if plaintext.len() < Self::pad_size() {
@@ -208,11 +235,11 @@ pub fn ece_min_block_pad_length(pad_len: usize, max_block_len: usize) -> usize {
         // the padding first.
         block_pad_len += 1;
     }
-    return if block_pad_len > pad_len {
+    if block_pad_len > pad_len {
         pad_len
     } else {
         block_pad_len
-    };
+    }
 }
 
 /// Generates a 96-bit IV, 48 bits of which are populated.

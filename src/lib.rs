@@ -2,18 +2,19 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+extern crate base64;
 extern crate byteorder;
 extern crate ece_crypto;
 extern crate failure;
-#[macro_use]
 extern crate failure_derive;
 
 mod aes128gcm;
-// TODO: mod aesgcm;
+mod aesgcm;
 mod common;
 mod error;
 
-pub use aes128gcm::WebPushParams;
+pub use aesgcm::AesGcmEncryptedBlock;
+pub use common::WebPushParams;
 pub use ece_crypto::{LocalKeyPair, RemotePublicKey};
 pub use error::*;
 
@@ -23,6 +24,13 @@ extern crate ece_crypto_openssl;
 pub use ece_crypto_openssl::{OpenSSLLocalKeyPair, OpenSSLRemotePublicKey};
 #[cfg(feature = "openssl")]
 pub type Aes128GcmEceWebPush = aes128gcm::Aes128GcmEceWebPush<
+    OpenSSLLocalKeyPair,
+    OpenSSLRemotePublicKey,
+    ece_crypto_openssl::OpenSSLCrypto,
+>;
+
+#[cfg(feature = "openssl")]
+pub type AesGcmEceWebPush = aesgcm::AesGcmEceWebPush<
     OpenSSLLocalKeyPair,
     OpenSSLRemotePublicKey,
     ece_crypto_openssl::OpenSSLCrypto,
@@ -232,4 +240,86 @@ mod aes128gcm_tests {
             _ => assert!(false),
         };
     }
+}
+
+// =====================
+#[cfg(test)]
+mod aesgcm_tests {
+    extern crate base64;
+    extern crate ece_crypto_openssl;
+    extern crate hex;
+
+    use super::*;
+    use aesgcm::AesGcmEncryptedBlock;
+    use ece_crypto::Crypto;
+    use ece_crypto_openssl::OpenSSLCrypto;
+
+    fn try_decrypt(
+        priv_key: &str,
+        auth_secret: &str,
+        block: &AesGcmEncryptedBlock,
+    ) -> Result<String> {
+        // The AesGcmEncryptedBlock is composed from the `Crypto-Key` & `Encryption` headers, and post body
+        // The Block will attempt to decode the base64 strings for dh & salt, so no additional action needed.
+        // Since the body is most likely not encoded, it is expected to be a raw buffer of [u8]
+        let priv_key_raw = base64::decode_config(priv_key, base64::URL_SAFE_NO_PAD)?;
+        let priv_key = OpenSSLLocalKeyPair::new(&priv_key_raw)?;
+        let auth_secret = base64::decode_config(auth_secret, base64::URL_SAFE_NO_PAD)?;
+        let plaintext = AesGcmEceWebPush::decrypt(&priv_key, &auth_secret, &block)?;
+        Ok(String::from_utf8(plaintext).unwrap())
+    }
+
+    #[test]
+    fn test_decode() {
+        // generated the content using pywebpush, which verified against the client.
+        let auth_raw = "LsuUOBKVQRY6-l7_Ajo-Ag";
+        let priv_key_raw = "yerDmA9uNFoaUnSt2TkWWLwPseG1qtzS2zdjUl8Z7tc";
+        //let pub_key_raw = "BLBlTYure2QVhJCiDt4gRL0JNmUBMxtNB5B6Z1hDg5h-Epw6mVFV4whoYGBlWNY-ENR1FObkGFyMf7-6ZMHMAxw";
+
+        // Incoming Crypto-Key: dh=
+        let dh = "BJvcyzf8ocm6F7lbFePebtXU7OHkmylXN9FL2g-yBHwUKqo6cD-FP1h5SHEQQ-xEgJl-F0xEEmSaEx2-qeJHYmk";
+        // Incoming Encryption-Key: salt=
+        let salt = "8qX1ZgkLD50LHgocZdPKZQ";
+        // Incoming Body (this is normally raw bytes. It's encoded here for presentation)
+        let ciphertext = base64::decode_config("8Vyes671P_VDf3G2e6MgY6IaaydgR-vODZZ7L0ZHbpCJNVaf_2omEms2tiPJiU22L3BoECKJixiOxihcsxWMjTgAcplbvfu1g6LWeP4j8dMAzJionWs7OOLif6jBKN6LGm4EUw9e26EBv9hNhi87-HaEGbfBMGcLvm1bql1F",
+            base64::URL_SAFE_NO_PAD).unwrap();
+        let plaintext = "Amidst the mists and coldest frosts I thrust my fists against the\nposts and still demand to see the ghosts.\n";
+
+        let block = AesGcmEncryptedBlock::new(
+            &base64::decode_config(dh, base64::URL_SAFE_NO_PAD).unwrap(),
+            &base64::decode_config(salt, base64::URL_SAFE_NO_PAD).unwrap(),
+            4096,
+            ciphertext,
+        )
+        .unwrap();
+
+        let result = try_decrypt(priv_key_raw, auth_raw, &block).unwrap();
+
+        assert!(result == plaintext)
+    }
+
+    #[test]
+    fn test_e2e() {
+        let (local_key, remote_key) = ece_crypto_openssl::generate_keys().unwrap();
+        let plaintext = "When I grow up, I want to be a watermelon".as_bytes();
+        let mut auth_secret = vec![0u8; 16];
+        OpenSSLCrypto::random(&mut auth_secret).unwrap();
+        let remote_public =
+            OpenSSLCrypto::public_key_from_raw(&remote_key.pub_as_raw().unwrap()).unwrap();
+        let params = WebPushParams::default();
+        let ciphertext = AesGcmEceWebPush::encrypt_with_keys(
+            &local_key,
+            &remote_public,
+            &auth_secret,
+            &plaintext,
+            params,
+        )
+        .unwrap();
+        let decrypted = AesGcmEceWebPush::decrypt(&remote_key, &auth_secret, &ciphertext).unwrap();
+        assert_eq!(decrypted, plaintext);
+    }
+
+    // If decode using externally validated data works, and e2e using the same decoder work, things
+    // should encode/decode.
+    // Other tests to be included if required, but skipping for now because of time constraints.
 }
