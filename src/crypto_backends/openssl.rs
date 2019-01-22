@@ -18,11 +18,13 @@ use openssl::{
     symm::{Cipher, Crypter, Mode},
 };
 use sha2::Sha256;
+use std::fmt;
 
 lazy_static! {
     static ref GROUP_P256: EcGroup = EcGroup::from_curve_name(Nid::X9_62_PRIME256V1).unwrap();
 }
 
+#[derive(Clone, Debug)]
 pub struct OpenSSLRemotePublicKey {
     raw_pub_key: Vec<u8>,
 }
@@ -48,8 +50,19 @@ impl RemotePublicKey for OpenSSLRemotePublicKey {
     }
 }
 
+#[derive(Clone)]
 pub struct OpenSSLLocalKeyPair {
     ec_key: EcKey<Private>,
+}
+
+impl fmt::Debug for OpenSSLLocalKeyPair {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "{:?}",
+            base64::encode_config(&self.ec_key.private_key().to_vec(), base64::URL_SAFE)
+        )
+    }
 }
 
 impl OpenSSLLocalKeyPair {
