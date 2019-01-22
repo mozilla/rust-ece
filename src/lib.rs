@@ -10,12 +10,12 @@ mod crypto_backends;
 mod error;
 
 pub use crate::{
+    aes128gcm::Aes128GcmEceWebPush,
+    aesgcm::{AesGcmEceWebPush, AesGcmEncryptedBlock},
+    common::WebPushParams,
     crypto_backend::{LocalKeyPair, RemotePublicKey},
     error::*,
 };
-pub use aes128gcm::Aes128GcmEceWebPush;
-pub use aesgcm::{AesGcmEceWebPush, AesGcmEncryptedBlock};
-pub use common::WebPushParams;
 
 pub type Aes128GcmEceWebPushImpl = aes128gcm::Aes128GcmEceWebPush<crypto_backends::CryptoImpl>;
 pub type AesGcmEceWebPushImpl = aesgcm::AesGcmEceWebPush<crypto_backends::CryptoImpl>;
