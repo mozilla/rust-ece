@@ -4,6 +4,9 @@ version = "0.1.0"
 authors = ["Edouard Oger <eoger@fastmail.com>", "JR Conlin <jrconlin@gmail.com>"]
 license = "MPL-2.0"
 edition = "2018"
+repository = "https://github.com/eoger/rust-ece"
+description = "Encrypted Content-Encoding for HTTP Rust implementation."
+keywords = ["http-ece", "web-push"]
 
 [dependencies]
 byteorder = "1.3"
