@@ -314,6 +314,12 @@ mod aesgcm_tests {
         assert_eq!(decrypted, plaintext);
     }
 
+    #[test]
+    fn test_debug() {
+        let local_key = LocalKeyPairImpl::generate_random().unwrap();
+        println!("Local key = {:?}", local_key);
+    }
+
     // If decode using externally validated data works, and e2e using the same decoder work, things
     // should encode/decode.
     // Other tests to be included if required, but skipping for now because of time constraints.
