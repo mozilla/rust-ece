@@ -1,7 +1,7 @@
 # rust-ece &emsp; [![Build Status]][circleci] [![Latest Version]][crates.io]
 
-[Build Status]: https://circleci.com/gh/eoger/rust-ece.svg?style=svg
-[circleci]: https://circleci.com/gh/eoger/rust-ece
+[Build Status]: https://circleci.com/gh/mozilla/rust-ece.svg?style=svg
+[circleci]: https://circleci.com/gh/mozilla/rust-ece
 [Latest Version]: https://img.shields.io/crates/v/ece.svg
 [crates.io]: https://crates.io/crates/ece
 
