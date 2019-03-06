@@ -5,6 +5,8 @@
 [Latest Version]: https://img.shields.io/crates/v/ece.svg
 [crates.io]: https://crates.io/crates/ece
 
+*This crate has not been security reviewed yet, use at your own risk ([tracking issue](https://github.com/mozilla/rust-ece/issues/18))*.
+
 [ece](https://crates.io/crates/ece) is a Rust implementation of the HTTP Encrypted Content-Encoding standard (RFC 8188). It is a port of the [ecec](https://github.com/web-push-libs/ecec) C library.  
 This crate is destined to be used by higher-level Web Push libraries, both on the server and the client side.  
 
