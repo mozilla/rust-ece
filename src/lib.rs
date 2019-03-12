@@ -12,14 +12,22 @@ mod error;
 pub use crate::{
     aes128gcm::Aes128GcmEceWebPush,
     aesgcm::{AesGcmEceWebPush, AesGcmEncryptedBlock},
-    common::WebPushParams,
-    crypto_backend::{LocalKeyPair, RemotePublicKey},
+    common::{WebPushParams, ECE_WEBPUSH_AUTH_SECRET_LENGTH},
+    crypto_backend::{Crypto, LocalKeyPair, RemotePublicKey},
     error::*,
 };
 
 pub type Aes128GcmEceWebPushImpl = aes128gcm::Aes128GcmEceWebPush<crypto_backends::CryptoImpl>;
 pub type AesGcmEceWebPushImpl = aesgcm::AesGcmEceWebPush<crypto_backends::CryptoImpl>;
-pub use crate::crypto_backends::{LocalKeyPairImpl, RemoteKeyPairImpl};
+pub use crate::crypto_backends::{CryptoImpl, LocalKeyPairImpl, RemoteKeyPairImpl};
+
+pub fn generate_keypair_and_auth_secret(
+) -> Result<(LocalKeyPairImpl, [u8; ECE_WEBPUSH_AUTH_SECRET_LENGTH])> {
+    let local_key_pair = LocalKeyPairImpl::generate_random()?;
+    let mut auth_secret = [0u8; ECE_WEBPUSH_AUTH_SECRET_LENGTH];
+    CryptoImpl::random(&mut auth_secret)?;
+    Ok((local_key_pair, auth_secret))
+}
 
 #[cfg(test)]
 mod aes128gcm_tests {
