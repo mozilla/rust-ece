@@ -15,7 +15,7 @@ pub const ECE_SALT_LENGTH: usize = 16;
 pub const ECE_TAG_LENGTH: usize = 16;
 //const ECE_WEBPUSH_PRIVATE_KEY_LENGTH: usize = 32;
 pub const ECE_WEBPUSH_PUBLIC_KEY_LENGTH: usize = 65;
-const ECE_WEBPUSH_AUTH_SECRET_LENGTH: usize = 16;
+pub const ECE_WEBPUSH_AUTH_SECRET_LENGTH: usize = 16;
 const ECE_WEBPUSH_DEFAULT_RS: u32 = 4096;
 
 // TODO: Make it nicer to use with a builder pattern.
