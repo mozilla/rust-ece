@@ -34,7 +34,7 @@ impl OpenSSLRemotePublicKey {
         let mut bn_ctx = BigNumContext::new()?;
         let point = EcPoint::from_bytes(&GROUP_P256, &self.raw_pub_key, &mut bn_ctx)?;
         let ec = EcKey::from_public_key(&GROUP_P256, &point)?;
-        PKey::from_ec_key(ec).map_err(|e| e.into())
+        PKey::from_ec_key(ec).map_err(std::convert::Into::into)
     }
 
     pub fn from_raw(raw: &[u8]) -> Self {
@@ -80,7 +80,7 @@ impl OpenSSLLocalKeyPair {
     }
 
     fn to_pkey(&self) -> Result<PKey<Private>> {
-        PKey::from_ec_key(self.ec_key.clone()).map_err(|e| e.into())
+        PKey::from_ec_key(self.ec_key.clone()).map_err(std::convert::Into::into)
     }
 }
 

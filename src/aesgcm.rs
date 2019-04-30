@@ -42,8 +42,8 @@ impl AesGcmEncryptedBlock {
 
     /// Create a new block from the various header strings and body content.
     pub fn new(
-        dh: &Vec<u8>,
-        salt: &Vec<u8>,
+        dh: &[u8],
+        salt: &[u8],
         rs: u32,
         ciphertext: Vec<u8>,
     ) -> Result<AesGcmEncryptedBlock> {
