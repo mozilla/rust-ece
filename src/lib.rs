@@ -9,9 +9,6 @@ mod crypto_backend;
 mod crypto_backends;
 mod error;
 
-use rand;
-use rand::Rng;
-
 pub use crate::{
     aes128gcm::Aes128GcmEceWebPush,
     aesgcm::{AesGcmEceWebPush, AesGcmEncryptedBlock},
@@ -43,8 +40,10 @@ pub fn generate_keypair_and_auth_secret(
 pub fn encrypt(remote_pub: &[u8], remote_auth: &[u8], salt: &[u8], data: &[u8]) -> Result<Vec<u8>> {
     let remote_key = crypto_backends::CryptoImpl::public_key_from_raw(remote_pub)?;
     let local_key = LocalKeyPairImpl::generate_random()?;
-    let mut rng = rand::thread_rng();
-    let pad = rng.gen_range(1, 4096 - data.len());
+    let mut padr = [0u8; 2];
+    CryptoImpl::random(&mut padr)?;
+    // since it's a sampled random, endian doesn't really matter.
+    let pad = ((usize::from(padr[0]) + (usize::from(padr[1]) << 8)) % 4095) + 1;
     let params = WebPushParams::new(4096, pad, Vec::from(salt));
     Aes128GcmEceWebPushImpl::encrypt_with_keys(&local_key, &remote_key, &remote_auth, data, params)
 }
@@ -366,9 +365,8 @@ mod aesgcm_tests {
     }
 
     #[test]
-    fn test_debug() {
-        let local_key = LocalKeyPairImpl::generate_random().unwrap();
-        println!("Local key = {:?}", local_key);
+    fn test_keygen() {
+        LocalKeyPairImpl::generate_random().unwrap();
     }
 
     // If decode using externally validated data works, and e2e using the same decoder work, things
