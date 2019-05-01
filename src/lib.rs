@@ -43,7 +43,6 @@ pub fn generate_keypair_and_auth_secret(
 pub fn encrypt(remote_pub: &[u8], remote_auth: &[u8], salt: &[u8], data: &[u8]) -> Result<Vec<u8>> {
     let remote_key = crypto_backends::CryptoImpl::public_key_from_raw(remote_pub)?;
     let local_key = LocalKeyPairImpl::generate_random()?;
-    // TODO: randomize pad.
     let mut rng = rand::thread_rng();
     let pad = rng.gen_range(1, 4096 - data.len());
     let params = WebPushParams::new(4096, pad, Vec::from(salt));
