@@ -25,21 +25,20 @@ const ECE_WEBPUSH_RAW_KEY_LENGTH: usize = 65;
 const ECE_WEBPUSH_IKM_LENGTH: usize = 32;
 
 pub struct AesGcmEncryptedBlock {
-    pub dh: Vec<u8>,
-    pub salt: Vec<u8>,
-    pub rs: u32,
-    pub ciphertext: Vec<u8>,
+    pub(crate) dh: Vec<u8>,
+    pub(crate) salt: Vec<u8>,
+    pub(crate) rs: u32,
+    pub(crate) ciphertext: Vec<u8>,
 }
 
 impl AesGcmEncryptedBlock {
-    pub fn aesgcm_rs(rs: u32) -> u32 {
+    fn aesgcm_rs(rs: u32) -> u32 {
         if rs > u32::max_value() - ECE_TAG_LENGTH as u32 {
             return 0;
         }
         rs + ECE_TAG_LENGTH as u32
     }
 
-    /// Create a new block from the various header strings and body content.
     pub fn new(
         dh: &[u8],
         salt: &[u8],
@@ -87,35 +86,20 @@ impl AesGcmEncryptedBlock {
     }
 
     /// Encode the body as a String.
-    /// If you need the bytes, probably just call .ciphertext directly
     pub fn body(&self) -> String {
         base64::encode_config(&self.ciphertext, base64::URL_SAFE_NO_PAD)
     }
 }
-/// Web Push encryption structure for the legacy AESGCM encoding scheme ([Web Push Encryption Draft 4](https://tools.ietf.org/html/draft-ietf-webpush-encryption-04))
-///
-/// This structure is meant for advanced use. For simple encryption/decryption, use the top-level [`encrypt_aesgcm`](crate::legacy::encrypt_aesgcm) and [`decrypt_aesgcm`](crate::legacy::decrypt_aesgcm) functions.
-pub struct AesGcmEceWebPush;
-impl AesGcmEceWebPush {
-    /// Encrypts a Web Push message using the "aesgcm" scheme. This function
-    /// automatically generates an ephemeral ECDH key pair.
-    pub fn encrypt(
-        remote_pub_key: &dyn RemotePublicKey,
-        auth_secret: &[u8],
-        plaintext: &[u8],
-        params: WebPushParams,
-    ) -> Result<AesGcmEncryptedBlock> {
-        let cryptographer = crypto::holder::get_cryptographer();
-        let local_prv_key = cryptographer.generate_ephemeral_keypair()?;
-        Self::encrypt_with_keys(
-            &*local_prv_key,
-            remote_pub_key,
-            auth_secret,
-            plaintext,
-            params,
-        )
-    }
 
+/// Web Push encryption structure for the legacy AESGCM encoding scheme
+/// ([Web Push Encryption Draft 4](https://tools.ietf.org/html/draft-ietf-webpush-encryption-04))
+///
+/// This structure is meant for advanced use. For simple encryption/decryption, use the top-level
+/// [`encrypt_aesgcm`](crate::legacy::encrypt_aesgcm) and [`decrypt_aesgcm`](crate::legacy::decrypt_aesgcm)
+/// functions.
+pub(crate) struct AesGcmEceWebPush;
+
+impl AesGcmEceWebPush {
     /// Encrypts a Web Push message using the "aesgcm" scheme, with an explicit
     /// sender key. The sender key can be reused.
     pub fn encrypt_with_keys(
@@ -175,6 +159,11 @@ impl EceWebPush for AesGcmEceWebPush {
         ciphertextlen as u32 % rs == 0
     }
 
+    /// Don't allow multiple records for this legacy scheme.
+    fn allow_multiple_records() -> bool {
+        false
+    }
+
     fn pad_size() -> usize {
         ECE_AESGCM_PAD_SIZE
     }
@@ -201,7 +190,7 @@ impl EceWebPush for AesGcmEceWebPush {
         Ok(&block[(2 + padding_size)..])
     }
 
-    /// Derives the "aesgcm" decryption keyn and nonce given the receiver private
+    /// Derives the "aesgcm" decryption key and nonce given the receiver private
     /// key, sender public key, authentication secret, and sender salt.
     fn derive_key_and_nonce(
         ece_mode: EceMode,

@@ -33,6 +33,12 @@ pub enum Error {
     #[error("Block too short")]
     BlockTooShort,
 
+    #[error("Plaintext is too long to fit in a single block")]
+    PlaintextTooLong,
+
+    #[error("Decryption across multiple records is not supported")]
+    MultipleRecordsNotSupported,
+
     #[error("Invalid decryption padding")]
     DecryptPadding,
 
