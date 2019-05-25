@@ -88,6 +88,9 @@ pub enum ErrorKind {
     #[fail(display = "Could not decode base64 entry")]
     DecodeError,
 
+    #[fail(display = "Crypto backend error")]
+    CryptoError,
+
     #[cfg(feature = "backend-openssl")]
     #[fail(display = "OpenSSL error: {}", _0)]
     OpenSSLError(#[fail(cause)] openssl::error::ErrorStack),

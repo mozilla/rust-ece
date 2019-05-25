@@ -5,7 +5,7 @@
 mod aes128gcm;
 mod aesgcm;
 mod common;
-mod crypto_backend;
+pub mod crypto_backend;
 mod crypto_backends;
 mod error;
 
