@@ -13,13 +13,13 @@ pub use crate::{
     aes128gcm::Aes128GcmEceWebPush,
     aesgcm::{AesGcmEceWebPush, AesGcmEncryptedBlock},
     common::{WebPushParams, ECE_WEBPUSH_AUTH_SECRET_LENGTH},
-    crypto_backend::{Crypto, LocalKeyPair, RemotePublicKey},
+    crypto_backend::{Crypto, EcKeyComponents, LocalKeyPair, RemotePublicKey},
     error::*,
 };
 
 pub type Aes128GcmEceWebPushImpl = aes128gcm::Aes128GcmEceWebPush<crypto_backends::CryptoImpl>;
 pub type AesGcmEceWebPushImpl = aesgcm::AesGcmEceWebPush<crypto_backends::CryptoImpl>;
-pub use crate::crypto_backends::{CryptoImpl, LocalKeyPairImpl, RemoteKeyPairImpl};
+pub use crate::crypto_backends::{CryptoImpl, LocalKeyPairImpl, RemotePublicKeyImpl};
 
 /// Generate a local ECE key pair and auth nonce.
 pub fn generate_keypair_and_auth_secret(
@@ -38,7 +38,7 @@ pub fn generate_keypair_and_auth_secret(
 /// param data &[u8] - The data to encrypt
 ///
 pub fn encrypt(remote_pub: &[u8], remote_auth: &[u8], salt: &[u8], data: &[u8]) -> Result<Vec<u8>> {
-    let remote_key = crypto_backends::CryptoImpl::public_key_from_raw(remote_pub)?;
+    let remote_key = crypto_backends::RemotePublicKeyImpl::from_raw(remote_pub)?;
     let local_key = LocalKeyPairImpl::generate_random()?;
     let mut padr = [0u8; 2];
     CryptoImpl::random(&mut padr)?;
@@ -50,13 +50,34 @@ pub fn encrypt(remote_pub: &[u8], remote_auth: &[u8], salt: &[u8], data: &[u8]) 
 
 /// Decrypt a block using default AES128GCM encoding.
 ///
-/// param local_priv &str - The locally generated Private key as a raw, hex encoded string
+/// param components &str - The locally generated private key components.
 /// param auth &str - The locally generated auth token (this value was shared with the encryptor)
 /// param data &[u8] - The encrypted data block
 ///
-pub fn decrypt(local_priv: &[u8], auth: &[u8], data: &[u8]) -> Result<Vec<u8>> {
-    let priv_key = LocalKeyPairImpl::new(local_priv).unwrap();
+pub fn decrypt(components: &EcKeyComponents, auth: &[u8], data: &[u8]) -> Result<Vec<u8>> {
+    let priv_key = LocalKeyPairImpl::from_raw_components(components).unwrap();
     Aes128GcmEceWebPushImpl::decrypt(&priv_key, &auth, data)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn ec_point_from_d(d: &[u8]) -> Vec<u8> {
+        use openssl::{bn::*, ec::*, nid::Nid};
+        let group = EcGroup::from_curve_name(Nid::X9_62_PRIME256V1).unwrap();
+        let d = BigNum::from_slice(d).unwrap();
+        let mut bn_ctx = BigNumContext::new().unwrap();
+        let mut pub_key_point = EcPoint::new(&group).unwrap();
+        pub_key_point.mul_generator(&group, &d, &bn_ctx).unwrap();
+        pub_key_point
+            .to_bytes(&group, PointConversionForm::COMPRESSED, &mut bn_ctx)
+            .unwrap()
+    }
+
+    pub fn components_from_d(d: &[u8]) -> EcKeyComponents {
+        EcKeyComponents::new(d, &ec_point_from_d(d))
+    }
 }
 
 #[cfg(test)]
@@ -65,6 +86,7 @@ mod aes128gcm_tests {
     use super::crypto_backend::Crypto;
     use super::crypto_backends::CryptoImpl;
     use super::*;
+    use tests::components_from_d;
 
     fn generate_keys() -> Result<(LocalKeyPairImpl, LocalKeyPairImpl)> {
         let local_key = LocalKeyPairImpl::generate_random()?;
@@ -82,9 +104,9 @@ mod aes128gcm_tests {
         plaintext: &str,
     ) -> Result<String> {
         let priv_key = hex::decode(priv_key).unwrap();
-        let priv_key = LocalKeyPairImpl::new(&priv_key)?;
+        let priv_key = LocalKeyPairImpl::from_raw_components(&components_from_d(&priv_key))?;
         let pub_key = hex::decode(pub_key).unwrap();
-        let pub_key = CryptoImpl::public_key_from_raw(&pub_key)?;
+        let pub_key = RemotePublicKeyImpl::from_raw(&pub_key)?;
         let auth_secret = hex::decode(auth_secret).unwrap();
         let salt = hex::decode(salt).unwrap();
         let plaintext = plaintext.as_bytes();
@@ -100,8 +122,9 @@ mod aes128gcm_tests {
     }
 
     fn try_decrypt(priv_key: &str, auth_secret: &str, payload: &str) -> Result<String> {
+        let components = components_from_d(&hex::decode(priv_key).unwrap());
         let plaintext = decrypt(
-            &hex::decode(priv_key).unwrap(),
+            &components,
             &hex::decode(auth_secret).unwrap(),
             &hex::decode(payload).unwrap(),
         )?;
@@ -115,7 +138,7 @@ mod aes128gcm_tests {
         let mut auth_secret = vec![0u8; 16];
         CryptoImpl::random(&mut auth_secret).unwrap();
         let remote_public =
-            CryptoImpl::public_key_from_raw(&remote_key.pub_as_raw().unwrap()).unwrap();
+            RemotePublicKeyImpl::from_raw(&remote_key.pub_as_raw().unwrap()).unwrap();
         let params = WebPushParams::default();
         let ciphertext = Aes128GcmEceWebPushImpl::encrypt_with_keys(
             &local_key,
@@ -137,7 +160,7 @@ mod aes128gcm_tests {
         let mut salt = vec![0u8; 16];
         CryptoImpl::random(&mut salt)?;
         let encoded = encrypt(&local_key.pub_as_raw()?, &auth, &salt, plaintext).unwrap();
-        let decoded = decrypt(&local_key.to_raw(), &auth, &encoded)?;
+        let decoded = decrypt(&local_key.raw_components()?, &auth, &encoded)?;
         assert_eq!(decoded, plaintext.to_vec());
         Ok(())
     }
@@ -291,6 +314,7 @@ mod aesgcm_tests {
     use super::crypto_backend::Crypto;
     use super::crypto_backends::CryptoImpl;
     use super::*;
+    use tests::components_from_d;
 
     fn generate_keys() -> Result<(LocalKeyPairImpl, LocalKeyPairImpl)> {
         let local_key = LocalKeyPairImpl::generate_random()?;
@@ -307,7 +331,7 @@ mod aesgcm_tests {
         // The Block will attempt to decode the base64 strings for dh & salt, so no additional action needed.
         // Since the body is most likely not encoded, it is expected to be a raw buffer of [u8]
         let priv_key_raw = base64::decode_config(priv_key, base64::URL_SAFE_NO_PAD)?;
-        let priv_key = LocalKeyPairImpl::new(&priv_key_raw)?;
+        let priv_key = LocalKeyPairImpl::from_raw_components(&components_from_d(&priv_key_raw))?;
         let auth_secret = base64::decode_config(auth_secret, base64::URL_SAFE_NO_PAD)?;
         let plaintext = AesGcmEceWebPushImpl::decrypt(&priv_key, &auth_secret, &block)?;
         Ok(String::from_utf8(plaintext).unwrap())
@@ -349,7 +373,7 @@ mod aesgcm_tests {
         let mut auth_secret = vec![0u8; 16];
         CryptoImpl::random(&mut auth_secret).unwrap();
         let remote_public =
-            CryptoImpl::public_key_from_raw(&remote_key.pub_as_raw().unwrap()).unwrap();
+            RemotePublicKeyImpl::from_raw(&remote_key.pub_as_raw().unwrap()).unwrap();
         let params = WebPushParams::default();
         let ciphertext = AesGcmEceWebPushImpl::encrypt_with_keys(
             &local_key,

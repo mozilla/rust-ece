@@ -5,6 +5,11 @@
 use crate::error::*;
 
 pub trait RemotePublicKey {
+    /// Import the key component in the
+    /// binary uncompressed point representation.
+    fn from_raw(raw: &[u8]) -> Result<Self>
+    where
+        Self: Sized;
     /// Export the key component in the
     /// binary uncompressed point representation.
     fn as_raw(&self) -> Result<Vec<u8>>;
@@ -18,13 +23,63 @@ pub trait LocalKeyPair {
     /// Export the public key component in the
     /// binary uncompressed point representation.
     fn pub_as_raw(&self) -> Result<Vec<u8>>;
+    /// Import a keypair from its raw components.
+    fn from_raw_components(components: &EcKeyComponents) -> Result<Self>
+    where
+        Self: Sized;
+    /// Export the raw components of the keypair.
+    fn raw_components(&self) -> Result<(EcKeyComponents)>;
+}
+
+#[derive(Clone, Debug, PartialEq)]
+#[cfg(feature = "serializable-keys")]
+#[derive(serde::Serialize, serde::Deserialize)]
+pub enum EcCurve {
+    P256,
+}
+
+impl Default for EcCurve {
+    fn default() -> Self {
+        EcCurve::P256
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+#[cfg(feature = "serializable-keys")]
+#[derive(serde::Serialize, serde::Deserialize)]
+pub struct EcKeyComponents {
+    // The curve is only kept in case the ECE standard changes in the future.
+    curve: EcCurve,
+    // The `d` value of the EC Key.
+    private_key: Vec<u8>,
+    // The uncompressed x,y-representation of the public component of the EC Key.
+    public_key: Vec<u8>,
+}
+
+impl EcKeyComponents {
+    pub fn new<T: Into<Vec<u8>>>(private_key: T, public_key: T) -> Self {
+        EcKeyComponents {
+            private_key: private_key.into(),
+            public_key: public_key.into(),
+            curve: Default::default(),
+        }
+    }
+    pub fn curve(&self) -> &EcCurve {
+        &self.curve
+    }
+    /// The `d` value of the EC Key.
+    pub fn private_key(&self) -> &[u8] {
+        &self.private_key
+    }
+    /// The uncompressed x,y-representation of the public component of the EC Key.
+    pub fn public_key(&self) -> &[u8] {
+        &self.public_key
+    }
 }
 
 pub trait Crypto: Sized {
     type RemotePublicKey: RemotePublicKey;
     type LocalKeyPair: LocalKeyPair;
-    /// Construct a `RemotePublicKey` from raw bytes typically obtained in a HTTP ECE header.
-    fn public_key_from_raw(raw: &[u8]) -> Result<Self::RemotePublicKey>;
     fn generate_ephemeral_keypair() -> Result<Self::LocalKeyPair>;
     fn compute_ecdh_secret(
         remote: &Self::RemotePublicKey,
