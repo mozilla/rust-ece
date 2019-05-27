@@ -126,7 +126,7 @@ where
             return Err(ErrorKind::ZeroCiphertext.into());
         }
         let ciphertext = &payload[ciphertext_start..];
-        let key = C::public_key_from_raw(key_id)?;
+        let key = C::RemotePublicKey::from_raw(key_id)?;
         Self::common_decrypt(local_prv_key, &key, auth_secret, salt, rs, ciphertext)
     }
 }

@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::{
-    crypto_backend::{Crypto, LocalKeyPair, RemotePublicKey},
+    crypto_backend::{Crypto, EcKeyComponents, LocalKeyPair, RemotePublicKey},
     error::*,
 };
 use hkdf::Hkdf;
@@ -36,15 +36,15 @@ impl OpenSSLRemotePublicKey {
         let ec = EcKey::from_public_key(&GROUP_P256, &point)?;
         PKey::from_ec_key(ec).map_err(std::convert::Into::into)
     }
-
-    pub fn from_raw(raw: &[u8]) -> Self {
-        OpenSSLRemotePublicKey {
-            raw_pub_key: raw.to_vec(),
-        }
-    }
 }
 
 impl RemotePublicKey for OpenSSLRemotePublicKey {
+    fn from_raw(raw: &[u8]) -> Result<Self> {
+        Ok(OpenSSLRemotePublicKey {
+            raw_pub_key: raw.to_vec(),
+        })
+    }
+
     fn as_raw(&self) -> Result<Vec<u8>> {
         Ok(self.raw_pub_key.to_vec())
     }
@@ -66,19 +66,6 @@ impl fmt::Debug for OpenSSLLocalKeyPair {
 }
 
 impl OpenSSLLocalKeyPair {
-    pub fn new(raw_ec_prv_key: &[u8]) -> Result<Self> {
-        let d = BigNum::from_slice(raw_ec_prv_key)?;
-        let bn_ctx = BigNumContext::new()?;
-        let mut pub_key_point = EcPoint::new(&GROUP_P256)?;
-        pub_key_point.mul_generator(&GROUP_P256, &d, &bn_ctx)?;
-        let ec_key = EcKey::from_private_components(&GROUP_P256, &d, &pub_key_point)?;
-        Ok(OpenSSLLocalKeyPair { ec_key })
-    }
-
-    pub fn to_raw(&self) -> Vec<u8> {
-        self.ec_key.private_key().to_vec()
-    }
-
     fn to_pkey(&self) -> Result<PKey<Private>> {
         PKey::from_ec_key(self.ec_key.clone()).map_err(std::convert::Into::into)
     }
@@ -100,6 +87,28 @@ impl LocalKeyPair for OpenSSLLocalKeyPair {
             pub_key_point.to_bytes(&GROUP_P256, PointConversionForm::UNCOMPRESSED, &mut bn_ctx)?;
         Ok(uncompressed)
     }
+
+    fn from_raw_components(components: &EcKeyComponents) -> Result<Self> {
+        let d = BigNum::from_slice(&components.private_key())?;
+        let mut bn_ctx = BigNumContext::new()?;
+        let ec_point = EcPoint::from_bytes(&GROUP_P256, &components.public_key(), &mut bn_ctx)?;
+        let mut x = BigNum::new()?;
+        let mut y = BigNum::new()?;
+        ec_point.affine_coordinates_gfp(&GROUP_P256, &mut x, &mut y, &mut bn_ctx)?;
+        let public_key = EcKey::from_public_key_affine_coordinates(&GROUP_P256, &x, &y)?;
+        let private_key = EcKey::from_private_components(&GROUP_P256, &d, public_key.public_key())?;
+        Ok(Self {
+            ec_key: private_key,
+        })
+    }
+
+    fn raw_components(&self) -> Result<(EcKeyComponents)> {
+        let private_key = self.ec_key.private_key();
+        Ok(EcKeyComponents::new(
+            private_key.to_vec(),
+            self.pub_as_raw()?,
+        ))
+    }
 }
 
 impl From<EcKey<Private>> for OpenSSLLocalKeyPair {
@@ -112,10 +121,6 @@ pub struct OpenSSLCrypto;
 impl Crypto for OpenSSLCrypto {
     type RemotePublicKey = OpenSSLRemotePublicKey;
     type LocalKeyPair = OpenSSLLocalKeyPair;
-
-    fn public_key_from_raw(raw: &[u8]) -> Result<Self::RemotePublicKey> {
-        Ok(OpenSSLRemotePublicKey::from_raw(raw))
-    }
 
     fn generate_ephemeral_keypair() -> Result<Self::LocalKeyPair> {
         Self::LocalKeyPair::generate_random()

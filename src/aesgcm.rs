@@ -154,7 +154,7 @@ where
         auth_secret: &[u8],
         block: &AesGcmEncryptedBlock,
     ) -> Result<Vec<u8>> {
-        let sender_key = C::public_key_from_raw(&block.dh)?;
+        let sender_key = C::RemotePublicKey::from_raw(&block.dh)?;
         Self::common_decrypt(
             local_prv_key,
             &sender_key,
