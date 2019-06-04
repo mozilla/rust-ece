@@ -21,7 +21,6 @@ sha2 = { version = "0.8", optional = true }
 
 [dev-dependencies]
 hex = "0.3"
-openssl = "0.10"
 
 [features]
 default = ["backend-openssl", "serializable-keys"]

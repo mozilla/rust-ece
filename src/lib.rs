@@ -60,33 +60,11 @@ pub fn decrypt(components: &EcKeyComponents, auth: &[u8], data: &[u8]) -> Result
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn ec_point_from_d(d: &[u8]) -> Vec<u8> {
-        use openssl::{bn::*, ec::*, nid::Nid};
-        let group = EcGroup::from_curve_name(Nid::X9_62_PRIME256V1).unwrap();
-        let d = BigNum::from_slice(d).unwrap();
-        let mut bn_ctx = BigNumContext::new().unwrap();
-        let mut pub_key_point = EcPoint::new(&group).unwrap();
-        pub_key_point.mul_generator(&group, &d, &bn_ctx).unwrap();
-        pub_key_point
-            .to_bytes(&group, PointConversionForm::COMPRESSED, &mut bn_ctx)
-            .unwrap()
-    }
-
-    pub fn components_from_d(d: &[u8]) -> EcKeyComponents {
-        EcKeyComponents::new(d, &ec_point_from_d(d))
-    }
-}
-
-#[cfg(test)]
 mod aes128gcm_tests {
     extern crate hex;
     use super::crypto_backend::Crypto;
     use super::crypto_backends::CryptoImpl;
     use super::*;
-    use tests::components_from_d;
 
     fn generate_keys() -> Result<(LocalKeyPairImpl, LocalKeyPairImpl)> {
         let local_key = LocalKeyPairImpl::generate_random()?;
@@ -95,25 +73,28 @@ mod aes128gcm_tests {
     }
 
     fn try_encrypt(
-        priv_key: &str,
-        pub_key: &str,
+        private_key: &str,
+        public_key: &str,
+        remote_pub_key: &str,
         auth_secret: &str,
         salt: &str,
         pad_length: usize,
         rs: u32,
         plaintext: &str,
     ) -> Result<String> {
-        let priv_key = hex::decode(priv_key).unwrap();
-        let priv_key = LocalKeyPairImpl::from_raw_components(&components_from_d(&priv_key))?;
-        let pub_key = hex::decode(pub_key).unwrap();
-        let pub_key = RemotePublicKeyImpl::from_raw(&pub_key)?;
+        let private_key = hex::decode(private_key).unwrap();
+        let public_key = hex::decode(public_key).unwrap();
+        let ec_key = EcKeyComponents::new(private_key, public_key);
+        let local_key_pair = LocalKeyPairImpl::from_raw_components(&ec_key)?;
+        let remote_pub_key = hex::decode(remote_pub_key).unwrap();
+        let remote_pub_key = RemotePublicKeyImpl::from_raw(&remote_pub_key)?;
         let auth_secret = hex::decode(auth_secret).unwrap();
         let salt = hex::decode(salt).unwrap();
         let plaintext = plaintext.as_bytes();
         let params = WebPushParams::new(rs, pad_length, salt);
         let ciphertext = Aes128GcmEceWebPushImpl::encrypt_with_keys(
-            &priv_key,
-            &pub_key,
+            &local_key_pair,
+            &remote_pub_key,
             &auth_secret,
             &plaintext,
             params,
@@ -121,10 +102,17 @@ mod aes128gcm_tests {
         Ok(hex::encode(ciphertext))
     }
 
-    fn try_decrypt(priv_key: &str, auth_secret: &str, payload: &str) -> Result<String> {
-        let components = components_from_d(&hex::decode(priv_key).unwrap());
+    fn try_decrypt(
+        private_key: &str,
+        public_key: &str,
+        auth_secret: &str,
+        payload: &str,
+    ) -> Result<String> {
+        let private_key = hex::decode(private_key).unwrap();
+        let public_key = hex::decode(public_key).unwrap();
+        let ec_key = EcKeyComponents::new(private_key, public_key);
         let plaintext = decrypt(
-            &components,
+            &ec_key,
             &hex::decode(auth_secret).unwrap(),
             &hex::decode(payload).unwrap(),
         )?;
@@ -169,6 +157,7 @@ mod aes128gcm_tests {
     fn try_encrypt_ietf_rfc() {
         let ciphertext = try_encrypt(
             "c9f58f89813e9f8e872e71f42aa64e1757c9254dcc62b72ddc010bb4043ea11c",
+            "04fe33f4ab0dea71914db55823f73b54948f41306d920732dbb9a59a53286482200e597a7b7bc260ba1c227998580992e93973002f3012a28ae8f06bbb78e5ec0f",
             "042571b2becdfde360551aaf1ed0f4cd366c11cebe555f89bcb7b186a53339173168ece2ebe018597bd30479b86e3c8f8eced577ca59187e9246990db682008b0e",
             "05305932a1c7eabe13b6cec9fda48882",
             "0c6bfaadad67958803092d454676f397",
@@ -183,6 +172,7 @@ mod aes128gcm_tests {
     fn try_encrypt_rs_24_pad_6() {
         let ciphertext = try_encrypt(
             "0f28beaf7e27793c03638dc2973a15b0016e1b367cbffda8861ab175f31bce02",
+            "0430efcb1eb043b805e4e44bab35f82513c33fedb28700f7e568ac8b61e8d835665a51eb6679b2db228a10c0c3fe5077062848d9bb3d60279f93ce35484728aa1f",
             "04c0d1a812b291291dd7beee358713c126c589f3633c26d1a201311de036dc10931e4ee142f61921a3ea5864e872a93841a52944e5b3f6accecce8c828fb04a4cd",
             "9d7735d8de1962b98394b07ffe287e20",
             "ff805030a108e114e6c17fad6186a1a6",
@@ -200,6 +190,7 @@ mod aes128gcm_tests {
         // write 3.
         let ciphertext = try_encrypt(
             "7830577bafcfc45828da0c40aab09fb227bfeae068aab8c064222acbe6effd34",
+            "0400b833e481a99aa330dcb277922d5f84af2e9ce611ad2ad3ed0f5b431912d35ea72fc5bf76b769d9526778f5abfa058650988da5e531ff82d1a7043794c71706",
             "04c3d714cb42e2b0a1d6f98599e2f186b8c2ba6f6fab5e09a2abca865c0805892b2c3729330ef83dc9df4b44362b039a0609d36beb9321a431ec123506ddd90f24",
             "e4d7b79decdede12c3e9d90d3e05730f",
             "e49888d2b28f277f847bc5de96f0f81b",
@@ -214,6 +205,7 @@ mod aes128gcm_tests {
     fn test_decrypt_rs_24_pad_0() {
         let plaintext = try_decrypt(
             "c899d11d32e2b7e6fe7498786f50f23b98ace5397ad261de39ba6449ecc12cad",
+            "04b3fc72e4365cbeb5c78862396eb5e66fd905b483a1b3eac04695f4b802e5b493c5e3b70eb427b6c728b2b204fc255fa218cb45f34d235242705e0d1ea87236e0",
             "996fad8b50aa2d02b83f26412b2e2aee",
             "495ce6c8de93a4539e862e8634993cbb0000001841043c3378a2c0ab954e1498718e85f08bb723fb7d25e135a663fe385884eb8192336bf90a54ed720f1c045c0b405e9bbc3a2142b16c89086734c374ebaf7099e6427e2d32c8ada5018703c54b10b481e1027d7209d8c6b43553fa133afa597f2ddc45a5ba8140944e6490bb8d6d99ba1d02e60d95f48ce644477c17231d95b97a4f95dd"
         ).unwrap();
@@ -224,6 +216,7 @@ mod aes128gcm_tests {
     fn test_decrypt_rs_49_pad_84_ciphertext_len_falls_on_record_boundary() {
         let plaintext = try_decrypt(
             "67004a4ea820deed8e49db5e9480e63d3ea3cce1ae8e1a60609713d527d001ef",
+            "04014e8f14b92da07ce083b93f96367e87b217a47f7ef2ee93a9d343aa063e575a9f30d59c690c6a39b3fc815b150ca7dd149601741337b53507a51f41b173a721",
             "95f17570e508ef6a2b2ad1b4f5cade33",
             "fb2883cec1c4fcadd6d1371f6ea491e00000003141042d441ee7f9ff6a0329a64927d0524fdbe7b22c6fb65e10ab4fdc038f94420a0ca3fa28dad36c84ec91a162eae078faad2c1ced78de8113e19602b20e894f4976b973e2fcf682fa0c8ccd9af3d5bff1ede16fad5a31ce19d38b5e1fe1f78a4fad842bbc10254c2c6cdd96a2b55284d972c53cad8c3bacb10f5f57eb0d4a4333b604102ba117cae29108fbd9f629a8ba6960dd01945b39ed37ba706c434a10fd2bd2094ff9249bcdad45135f5fe45fcd38071f8b2d3941afda439810d77aacaf7ce50b54325bf58c9503337d073785a323dfa343"
         ).unwrap();
@@ -234,6 +227,7 @@ mod aes128gcm_tests {
     fn test_decrypt_ietf_rfc() {
         let plaintext = try_decrypt(
             "ab5757a70dd4a53e553a6bbf71ffefea2874ec07a6b379e3c48f895a02dc33de",
+            "042571b2becdfde360551aaf1ed0f4cd366c11cebe555f89bcb7b186a53339173168ece2ebe018597bd30479b86e3c8f8eced577ca59187e9246990db682008b0e",
             "05305932a1c7eabe13b6cec9fda48882",
             "0c6bfaadad67958803092d454676f397000010004104fe33f4ab0dea71914db55823f73b54948f41306d920732dbb9a59a53286482200e597a7b7bc260ba1c227998580992e93973002f3012a28ae8f06bbb78e5ec0ff297de5b429bba7153d3a4ae0caa091fd425f3b4b5414add8ab37a19c1bbb05cf5cb5b2a2e0562d558635641ec52812c6c8ff42e95ccb86be7cd"
         ).unwrap();
@@ -244,6 +238,7 @@ mod aes128gcm_tests {
     fn test_decrypt_rs_18_pad_0() {
         let plaintext = try_decrypt(
             "27433fab8970b3cb5284b61183efb46286562cd2a7330d8cae960911a5571d0c",
+            "04515d4326355652399da24b2be9241e633b5cf14faf0cf3a6fd60317b954c0a2f4848548004b27b0cf7480bc810c6bec03a8fb79c8ea00fc8b05e00f8834563ef",
             "d65a04df95f2db5e604839f717dcde79",
             "7caebdbc20938ee340a946f1bd4f68f100000012410437cfdb5223d9f95eaa02f6ed940ff22eaf05b3622e949dc3ce9f335e6ef9b26aeaacca0f74080a8b364592f2ccc6d5eddd43004b70b91887d144d9fa93f16c3bc7ea68f4fd547a94eca84b16e138a6080177"
         ).unwrap();
@@ -254,6 +249,7 @@ mod aes128gcm_tests {
     fn test_decrypt_missing_header_block() {
         let err = try_decrypt(
             "1be83f38332ef09681faf3f307b1ff2e10cab78cc7cdab683ac0ee92ac3f6ee1",
+            "04dba991ca215343f36bdd3e857cafde3d18bf57f1835b2833bad414f0884162051ac96a0b24490037d07cf528e4e18e100a1a64eb744748544bf1e220dabacf2c",
             "3471bb98481e02533bf39542bcf3dba4",
             "45b74d2b69be9b074de3b35aa87e7c15611d",
         )
@@ -268,6 +264,7 @@ mod aes128gcm_tests {
     fn test_decrypt_truncated_sender_key() {
         let err = try_decrypt(
             "ce88e8e0b3057a4752eb4c8fa931eb621c302da5ad03b81af459cf6735560cae",
+            "04a325d99084c40de0ce722a042c448d94a32691721ca79e3cf745e78c69886194b02cea19224176795a9d4dbbb2073af2ccd6fa6f0a4c7c4968556be502a3ba81",
             "5c31e0d96d9a139899ac0969d359f740",
             "de5b696b87f1a15cb6adebdd79d6f99e000000120100b6bc1826c37c9f73dd6b4859c2b505181952",
         )
@@ -282,6 +279,7 @@ mod aes128gcm_tests {
     fn test_decrypt_truncated_auth_secret() {
         let err = try_decrypt(
             "60c7636a517de7039a0ac2d0e3064400794c78e7e049398129a227cee0f9a801",
+            "04fdd04128a85c05896d7f81fe118bdcb887b9f3c1ff4183adc4c824d128607300e986b2dfb5a610e5af43e408a00730584f93e3dfddfc44737d5f08fb2d6f8916",
             "355a38cd6d9bef15990e2d3308dbd600",
             "8115f4988b8c392a7bacb43c8f1ac5650000001241041994483c541e9bc39a6af03ff713aa7745c284e138a42a2435b797b20c4b698cf5118b4f8555317c190eabebfab749c164d3f6bdebe0d441719131a357d8890a13c4dbd4b16ff3dd5a83f7c91ad6e040ac42730a7f0b3cd3245e9f8d6ff31c751d410cfd"
         ).unwrap_err();
@@ -295,6 +293,7 @@ mod aes128gcm_tests {
     fn test_decrypt_early_final_record() {
         let err = try_decrypt(
             "5dda1d918bc407ba3cda12cb8014d49aa7e0269002820304466bc80034ca9240",
+            "04c95c6520dad11e8f6a1bf8031a40c2a4ee1045c1903be06a1dfa7f829cceb2de02481ae6bd0476121b12c5532d0b231788077efa0683a5bfe0d62339b251cb35",
             "40c241fde4269ee1e6d725592d982718",
             "dbe215507d1ad3d2eaeabeae6e874d8f0000001241047bc4343f34a8348cdc4e462ffc7c40aa6a8c61a739c4c41d45125505f70e9fc5f9efa86852dd488dcf8e8ea2cafb75e07abd5ee7c9d5c038bafef079571b0bda294411ce98c76dd031c0e580577a4980a375e45ed30429be0e2ee9da7e6df8696d01b8ec"
         ).unwrap_err();
@@ -314,7 +313,6 @@ mod aesgcm_tests {
     use super::crypto_backend::Crypto;
     use super::crypto_backends::CryptoImpl;
     use super::*;
-    use tests::components_from_d;
 
     fn generate_keys() -> Result<(LocalKeyPairImpl, LocalKeyPairImpl)> {
         let local_key = LocalKeyPairImpl::generate_random()?;
@@ -324,6 +322,7 @@ mod aesgcm_tests {
 
     fn try_decrypt(
         priv_key: &str,
+        pub_key: &str,
         auth_secret: &str,
         block: &AesGcmEncryptedBlock,
     ) -> Result<String> {
@@ -331,7 +330,9 @@ mod aesgcm_tests {
         // The Block will attempt to decode the base64 strings for dh & salt, so no additional action needed.
         // Since the body is most likely not encoded, it is expected to be a raw buffer of [u8]
         let priv_key_raw = base64::decode_config(priv_key, base64::URL_SAFE_NO_PAD)?;
-        let priv_key = LocalKeyPairImpl::from_raw_components(&components_from_d(&priv_key_raw))?;
+        let pub_key_raw = base64::decode_config(pub_key, base64::URL_SAFE_NO_PAD)?;
+        let ec_key = EcKeyComponents::new(priv_key_raw, pub_key_raw);
+        let priv_key = LocalKeyPairImpl::from_raw_components(&ec_key)?;
         let auth_secret = base64::decode_config(auth_secret, base64::URL_SAFE_NO_PAD)?;
         let plaintext = AesGcmEceWebPushImpl::decrypt(&priv_key, &auth_secret, &block)?;
         Ok(String::from_utf8(plaintext).unwrap())
@@ -342,7 +343,7 @@ mod aesgcm_tests {
         // generated the content using pywebpush, which verified against the client.
         let auth_raw = "LsuUOBKVQRY6-l7_Ajo-Ag";
         let priv_key_raw = "yerDmA9uNFoaUnSt2TkWWLwPseG1qtzS2zdjUl8Z7tc";
-        //let pub_key_raw = "BLBlTYure2QVhJCiDt4gRL0JNmUBMxtNB5B6Z1hDg5h-Epw6mVFV4whoYGBlWNY-ENR1FObkGFyMf7-6ZMHMAxw";
+        let pub_key_raw = "BLBlTYure2QVhJCiDt4gRL0JNmUBMxtNB5B6Z1hDg5h-Epw6mVFV4whoYGBlWNY-ENR1FObkGFyMf7-6ZMHMAxw";
 
         // Incoming Crypto-Key: dh=
         let dh = "BJvcyzf8ocm6F7lbFePebtXU7OHkmylXN9FL2g-yBHwUKqo6cD-FP1h5SHEQQ-xEgJl-F0xEEmSaEx2-qeJHYmk";
@@ -361,7 +362,7 @@ mod aesgcm_tests {
         )
         .unwrap();
 
-        let result = try_decrypt(priv_key_raw, auth_raw, &block).unwrap();
+        let result = try_decrypt(priv_key_raw, pub_key_raw, auth_raw, &block).unwrap();
 
         assert!(result == plaintext)
     }
