@@ -32,8 +32,10 @@ pub trait LocalKeyPair {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-#[cfg(feature = "serializable-keys")]
-#[derive(serde::Serialize, serde::Deserialize)]
+#[cfg_attr(
+    feature = "serializable-keys",
+    derive(serde::Serialize, serde::Deserialize)
+)]
 pub enum EcCurve {
     P256,
 }
@@ -45,8 +47,10 @@ impl Default for EcCurve {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-#[cfg(feature = "serializable-keys")]
-#[derive(serde::Serialize, serde::Deserialize)]
+#[cfg_attr(
+    feature = "serializable-keys",
+    derive(serde::Serialize, serde::Deserialize)
+)]
 pub struct EcKeyComponents {
     // The curve is only kept in case the ECE standard changes in the future.
     curve: EcCurve,
