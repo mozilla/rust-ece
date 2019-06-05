@@ -1,6 +1,6 @@
 [package]
 name = "ece"
-version = "1.0.0"
+version = "1.0.1"
 authors = ["Edouard Oger <eoger@fastmail.com>", "JR Conlin <jrconlin@gmail.com>"]
 license = "MPL-2.0"
 edition = "2018"
