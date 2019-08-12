@@ -11,7 +11,7 @@
 
 use crate::{
     common::*,
-    crypto_backend::{Crypto, LocalKeyPair, RemotePublicKey},
+    crypto::{self, LocalKeyPair, RemotePublicKey},
     error::*,
 };
 use std::collections::HashMap;
@@ -88,27 +88,20 @@ impl AesGcmEncryptedBlock {
     }
 }
 
-pub struct AesGcmEceWebPush<C>
-where
-    C: Crypto,
-{
-    _marker: ::std::marker::PhantomData<C>,
-}
-impl<C> AesGcmEceWebPush<C>
-where
-    C: Crypto,
-{
+pub struct AesGcmEceWebPush;
+impl AesGcmEceWebPush {
     /// Encrypts a Web Push message using the "aesgcm" scheme. This function
     /// automatically generates an ephemeral ECDH key pair.
     pub fn encrypt(
-        remote_pub_key: &C::RemotePublicKey,
+        remote_pub_key: &dyn RemotePublicKey,
         auth_secret: &[u8],
         plaintext: &[u8],
         params: WebPushParams,
     ) -> Result<AesGcmEncryptedBlock> {
-        let local_prv_key = C::generate_ephemeral_keypair()?;
+        let cryptographer = crypto::holder::get_cryptographer();
+        let local_prv_key = cryptographer.generate_ephemeral_keypair()?;
         Self::encrypt_with_keys(
-            &local_prv_key,
+            &*local_prv_key,
             remote_pub_key,
             auth_secret,
             plaintext,
@@ -119,15 +112,16 @@ where
     /// Encrypts a Web Push message using the "aesgcm" scheme, with an explicit
     /// sender key. The sender key can be reused.
     pub fn encrypt_with_keys(
-        local_prv_key: &C::LocalKeyPair,
-        remote_pub_key: &C::RemotePublicKey,
+        local_prv_key: &dyn LocalKeyPair,
+        remote_pub_key: &dyn RemotePublicKey,
         auth_secret: &[u8],
         plaintext: &[u8],
         params: WebPushParams,
     ) -> Result<AesGcmEncryptedBlock> {
+        let cryptographer = crypto::holder::get_cryptographer();
         let salt = {
             let mut salt = [0u8; ECE_SALT_LENGTH];
-            C::random(&mut salt)?;
+            cryptographer.random_bytes(&mut salt)?;
             salt.to_vec()
         };
         let raw_local_pub_key = local_prv_key.pub_as_raw()?;
@@ -150,14 +144,15 @@ where
 
     /// Decrypts a Web Push message encrypted using the "aesgcm" scheme.
     pub fn decrypt(
-        local_prv_key: &C::LocalKeyPair,
+        local_prv_key: &dyn LocalKeyPair,
         auth_secret: &[u8],
         block: &AesGcmEncryptedBlock,
     ) -> Result<Vec<u8>> {
-        let sender_key = C::RemotePublicKey::from_raw(&block.dh)?;
+        let cryptographer = crypto::holder::get_cryptographer();
+        let sender_key = cryptographer.import_public_key(&block.dh)?;
         Self::common_decrypt(
             local_prv_key,
-            &sender_key,
+            &*sender_key,
             auth_secret,
             &block.salt,
             block.rs,
@@ -166,10 +161,7 @@ where
     }
 }
 
-impl<C> EceWebPush<C> for AesGcmEceWebPush<C>
-where
-    C: Crypto,
-{
+impl EceWebPush for AesGcmEceWebPush {
     fn needs_trailer(rs: u32, ciphertextlen: usize) -> bool {
         ciphertextlen as u32 % rs == 0
     }
@@ -197,12 +189,13 @@ where
     /// key, sender public key, authentication secret, and sender salt.
     fn derive_key_and_nonce(
         ece_mode: EceMode,
-        local_prv_key: &C::LocalKeyPair,
-        remote_pub_key: &C::RemotePublicKey,
+        local_prv_key: &dyn LocalKeyPair,
+        remote_pub_key: &dyn RemotePublicKey,
         auth_secret: &[u8],
         salt: &[u8],
     ) -> Result<KeyAndNonce> {
-        let shared_secret = C::compute_ecdh_secret(remote_pub_key, local_prv_key)?;
+        let cryptographer = crypto::holder::get_cryptographer();
+        let shared_secret = cryptographer.compute_ecdh_secret(remote_pub_key, local_prv_key)?;
         let raw_remote_pub_key = remote_pub_key.as_raw()?;
         let raw_local_pub_key = local_prv_key.pub_as_raw()?;
 
@@ -212,14 +205,14 @@ where
         }?;
         let keyinfo = generate_info("aesgcm", &keypair)?;
         let nonceinfo = generate_info("nonce", &keypair)?;
-        let ikm = C::hkdf_sha256(
+        let ikm = cryptographer.hkdf_sha256(
             auth_secret,
             &shared_secret,
             &ECE_WEBPUSH_AESGCM_AUTHINFO.as_bytes(),
             ECE_WEBPUSH_IKM_LENGTH,
         )?;
-        let key = C::hkdf_sha256(salt, &ikm, &keyinfo, ECE_AES_KEY_LENGTH)?;
-        let nonce = C::hkdf_sha256(salt, &ikm, &nonceinfo, ECE_NONCE_LENGTH)?;
+        let key = cryptographer.hkdf_sha256(salt, &ikm, &keyinfo, ECE_AES_KEY_LENGTH)?;
+        let nonce = cryptographer.hkdf_sha256(salt, &ikm, &nonceinfo, ECE_NONCE_LENGTH)?;
         Ok((key, nonce))
     }
 }

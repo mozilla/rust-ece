@@ -4,7 +4,7 @@
 
 use crate::{
     common::*,
-    crypto_backend::{Crypto, LocalKeyPair, RemotePublicKey},
+    crypto::{self, LocalKeyPair, RemotePublicKey},
     error::*,
 };
 use byteorder::{BigEndian, ByteOrder};
@@ -26,27 +26,20 @@ const ECE_AES128GCM_NONCE_INFO: &str = "Content-Encoding: nonce\0";
 // TODO: When done, remove the aes128gcm prefixes and the EC_ ones.
 // As for now it makes it easier to Ctrl + F into ecec :)
 
-pub struct Aes128GcmEceWebPush<C>
-where
-    C: Crypto,
-{
-    _marker: ::std::marker::PhantomData<C>,
-}
-impl<C> Aes128GcmEceWebPush<C>
-where
-    C: Crypto,
-{
+pub struct Aes128GcmEceWebPush;
+impl Aes128GcmEceWebPush {
     /// Encrypts a Web Push message using the "aes128gcm" scheme. This function
     /// automatically generates an ephemeral ECDH key pair.
     pub fn encrypt(
-        remote_pub_key: &C::RemotePublicKey,
+        remote_pub_key: &dyn RemotePublicKey,
         auth_secret: &[u8],
         plaintext: &[u8],
         params: WebPushParams,
     ) -> Result<Vec<u8>> {
-        let local_prv_key = C::generate_ephemeral_keypair()?;
+        let cryptographer = crypto::holder::get_cryptographer();
+        let local_prv_key = cryptographer.generate_ephemeral_keypair()?;
         Self::encrypt_with_keys(
-            &local_prv_key,
+            &*local_prv_key,
             remote_pub_key,
             auth_secret,
             plaintext,
@@ -57,17 +50,18 @@ where
     /// Encrypts a Web Push message using the "aes128gcm" scheme, with an explicit
     /// sender key. The sender key can be reused.
     pub fn encrypt_with_keys(
-        local_prv_key: &C::LocalKeyPair,
-        remote_pub_key: &C::RemotePublicKey,
+        local_prv_key: &dyn LocalKeyPair,
+        remote_pub_key: &dyn RemotePublicKey,
         auth_secret: &[u8],
         plaintext: &[u8],
         params: WebPushParams,
     ) -> Result<Vec<u8>> {
+        let cryptographer = crypto::holder::get_cryptographer();
         let salt = match params.salt {
             Some(salt) => salt,
             None => {
                 let mut salt = [0u8; ECE_SALT_LENGTH];
-                C::random(&mut salt)?;
+                cryptographer.random_bytes(&mut salt)?;
                 salt.to_vec()
             }
         };
@@ -96,7 +90,7 @@ where
 
     /// Decrypts a Web Push message encrypted using the "aes128gcm" scheme.
     pub fn decrypt(
-        local_prv_key: &C::LocalKeyPair,
+        local_prv_key: &dyn LocalKeyPair,
         auth_secret: &[u8],
         payload: &[u8],
     ) -> Result<Vec<u8>> {
@@ -126,15 +120,13 @@ where
             return Err(ErrorKind::ZeroCiphertext.into());
         }
         let ciphertext = &payload[ciphertext_start..];
-        let key = C::RemotePublicKey::from_raw(key_id)?;
-        Self::common_decrypt(local_prv_key, &key, auth_secret, salt, rs, ciphertext)
+        let cryptographer = crypto::holder::get_cryptographer();
+        let key = cryptographer.import_public_key(key_id)?;
+        Self::common_decrypt(local_prv_key, &*key, auth_secret, salt, rs, ciphertext)
     }
 }
 
-impl<C> EceWebPush<C> for Aes128GcmEceWebPush<C>
-where
-    C: Crypto,
-{
+impl EceWebPush for Aes128GcmEceWebPush {
     /// Always returns false because "aes128gcm" uses
     /// a padding scheme that doesn't need a trailer.
     fn needs_trailer(_: u32, _: usize) -> bool {
@@ -174,12 +166,13 @@ where
     /// key, sender public key, authentication secret, and sender salt.
     fn derive_key_and_nonce(
         ece_mode: EceMode,
-        local_prv_key: &C::LocalKeyPair,
-        remote_pub_key: &C::RemotePublicKey,
+        local_prv_key: &dyn LocalKeyPair,
+        remote_pub_key: &dyn RemotePublicKey,
         auth_secret: &[u8],
         salt: &[u8],
     ) -> Result<KeyAndNonce> {
-        let shared_secret = C::compute_ecdh_secret(remote_pub_key, local_prv_key)?;
+        let cryptographer = crypto::holder::get_cryptographer();
+        let shared_secret = cryptographer.compute_ecdh_secret(remote_pub_key, local_prv_key)?;
         let raw_remote_pub_key = remote_pub_key.as_raw()?;
         let raw_local_pub_key = local_prv_key.pub_as_raw()?;
 
@@ -189,19 +182,20 @@ where
             EceMode::ENCRYPT => generate_info(&raw_remote_pub_key, &raw_local_pub_key),
             EceMode::DECRYPT => generate_info(&raw_local_pub_key, &raw_remote_pub_key),
         }?;
-        let ikm = C::hkdf_sha256(
+        let cryptographer = crypto::holder::get_cryptographer();
+        let ikm = cryptographer.hkdf_sha256(
             auth_secret,
             &shared_secret,
             &ikm_info,
             ECE_WEBPUSH_IKM_LENGTH,
         )?;
-        let key = C::hkdf_sha256(
+        let key = cryptographer.hkdf_sha256(
             salt,
             &ikm,
             ECE_AES128GCM_KEY_INFO.as_bytes(),
             ECE_AES_KEY_LENGTH,
         )?;
-        let nonce = C::hkdf_sha256(
+        let nonce = cryptographer.hkdf_sha256(
             salt,
             &ikm,
             ECE_AES128GCM_NONCE_INFO.as_bytes(),

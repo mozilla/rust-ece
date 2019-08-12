@@ -3,32 +3,31 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::error::*;
+use std::any::Any;
 
-pub trait RemotePublicKey {
-    /// Import the key component in the
-    /// binary uncompressed point representation.
-    fn from_raw(raw: &[u8]) -> Result<Self>
-    where
-        Self: Sized;
+pub(crate) mod holder;
+#[cfg(feature = "backend-openssl")]
+mod openssl;
+
+#[cfg(not(feature = "backend-openssl"))]
+pub use holder::{set_boxed_cryptographer, set_cryptographer};
+
+pub trait RemotePublicKey: Send + Sync + 'static {
     /// Export the key component in the
     /// binary uncompressed point representation.
     fn as_raw(&self) -> Result<Vec<u8>>;
+    /// For downcasting purposes.
+    fn as_any(&self) -> &dyn Any;
 }
 
-pub trait LocalKeyPair {
-    /// Generate a random local key pair.
-    fn generate_random() -> Result<Self>
-    where
-        Self: Sized;
+pub trait LocalKeyPair: Send + Sync + 'static {
     /// Export the public key component in the
     /// binary uncompressed point representation.
     fn pub_as_raw(&self) -> Result<Vec<u8>>;
-    /// Import a keypair from its raw components.
-    fn from_raw_components(components: &EcKeyComponents) -> Result<Self>
-    where
-        Self: Sized;
     /// Export the raw components of the keypair.
     fn raw_components(&self) -> Result<(EcKeyComponents)>;
+    /// For downcasting purposes.
+    fn as_any(&self) -> &dyn Any;
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -81,17 +80,26 @@ impl EcKeyComponents {
     }
 }
 
-pub trait Crypto: Sized {
-    type RemotePublicKey: RemotePublicKey;
-    type LocalKeyPair: LocalKeyPair;
-    fn generate_ephemeral_keypair() -> Result<Self::LocalKeyPair>;
+pub trait Cryptographer: Send + Sync + 'static {
+    /// Generate a random ephemeral local key pair.
+    fn generate_ephemeral_keypair(&self) -> Result<Box<dyn LocalKeyPair>>;
+    /// Import a local keypair from its raw components.
+    fn import_key_pair(&self, components: &EcKeyComponents) -> Result<Box<dyn LocalKeyPair>>;
+    /// Import the public key component in the binary uncompressed point representation.
+    fn import_public_key(&self, raw: &[u8]) -> Result<Box<dyn RemotePublicKey>>;
     fn compute_ecdh_secret(
-        remote: &Self::RemotePublicKey,
-        local: &Self::LocalKeyPair,
+        &self,
+        remote: &dyn RemotePublicKey,
+        local: &dyn LocalKeyPair,
     ) -> Result<Vec<u8>>;
-    fn hkdf_sha256(salt: &[u8], secret: &[u8], info: &[u8], len: usize) -> Result<Vec<u8>>;
+    fn hkdf_sha256(&self, salt: &[u8], secret: &[u8], info: &[u8], len: usize) -> Result<Vec<u8>>;
     /// Should return [ciphertext, auth_tag].
-    fn aes_gcm_128_encrypt(key: &[u8], iv: &[u8], data: &[u8], tag_len: usize) -> Result<Vec<u8>>;
-    fn aes_gcm_128_decrypt(key: &[u8], iv: &[u8], data: &[u8], tag: &[u8]) -> Result<Vec<u8>>;
-    fn random(dest: &mut [u8]) -> Result<()>;
+    fn aes_gcm_128_encrypt(&self, key: &[u8], iv: &[u8], data: &[u8]) -> Result<Vec<u8>>;
+    fn aes_gcm_128_decrypt(
+        &self,
+        key: &[u8],
+        iv: &[u8],
+        ciphertext_and_tag: &[u8],
+    ) -> Result<Vec<u8>>;
+    fn random_bytes(&self, dest: &mut [u8]) -> Result<()>;
 }
