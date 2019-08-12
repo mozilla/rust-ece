@@ -2,7 +2,10 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::{crypto_backend::Crypto, error::*};
+use crate::{
+    crypto::{self, LocalKeyPair, RemotePublicKey},
+    error::*,
+};
 use byteorder::{BigEndian, ByteOrder};
 use std::cmp::min;
 
@@ -53,13 +56,10 @@ pub enum EceMode {
 
 pub type KeyAndNonce = (Vec<u8>, Vec<u8>);
 
-pub trait EceWebPush<C>
-where
-    C: Crypto,
-{
+pub trait EceWebPush {
     fn common_encrypt(
-        local_prv_key: &C::LocalKeyPair,
-        remote_pub_key: &C::RemotePublicKey,
+        local_prv_key: &dyn LocalKeyPair,
+        remote_pub_key: &dyn RemotePublicKey,
         auth_secret: &[u8],
         salt: &[u8],
         rs: u32,
@@ -145,7 +145,8 @@ where
                 block_pad_len,
                 last_record,
             )?;
-            let mut record = C::aes_gcm_128_encrypt(&key, &iv, &block, ECE_TAG_LENGTH)?;
+            let cryptographer = crypto::holder::get_cryptographer();
+            let mut record = cryptographer.aes_gcm_128_encrypt(&key, &iv, &block)?;
             ciphertext.append(&mut record);
             plaintext_start = plaintext_end;
             counter += 1;
@@ -154,8 +155,8 @@ where
     }
 
     fn common_decrypt(
-        local_prv_key: &C::LocalKeyPair,
-        remote_pub_key: &C::RemotePublicKey,
+        local_prv_key: &dyn LocalKeyPair,
+        remote_pub_key: &dyn RemotePublicKey,
         auth_secret: &[u8],
         salt: &[u8],
         rs: u32,
@@ -191,10 +192,8 @@ where
                 }
                 let iv = generate_iv(&nonce, count);
                 assert!(record.len() > ECE_TAG_LENGTH);
-                let block_len = record.len() - ECE_TAG_LENGTH;
-                let data = &record[0..block_len];
-                let tag = &record[block_len..];
-                let plaintext = C::aes_gcm_128_decrypt(&key, &iv, data, tag)?;
+                let cryptographer = crypto::holder::get_cryptographer();
+                let plaintext = cryptographer.aes_gcm_128_decrypt(&key, &iv, record)?;
                 let last_record = count == records_count - 1;
                 if plaintext.len() < Self::pad_size() {
                     return Err(ErrorKind::BlockTooShort.into());
@@ -215,8 +214,8 @@ where
     fn unpad(block: &[u8], last_record: bool) -> Result<&[u8]>;
     fn derive_key_and_nonce(
         ece_mode: EceMode,
-        local_prv_key: &C::LocalKeyPair,
-        remote_pub_key: &C::RemotePublicKey,
+        local_prv_key: &dyn LocalKeyPair,
+        remote_pub_key: &dyn RemotePublicKey,
         auth_secret: &[u8],
         salt: &[u8],
     ) -> Result<KeyAndNonce>;
