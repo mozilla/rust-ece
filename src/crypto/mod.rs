@@ -25,7 +25,7 @@ pub trait LocalKeyPair: Send + Sync + 'static {
     /// binary uncompressed point representation.
     fn pub_as_raw(&self) -> Result<Vec<u8>>;
     /// Export the raw components of the keypair.
-    fn raw_components(&self) -> Result<(EcKeyComponents)>;
+    fn raw_components(&self) -> Result<EcKeyComponents>;
     /// For downcasting purposes.
     fn as_any(&self) -> &dyn Any;
 }
