@@ -106,7 +106,7 @@ impl LocalKeyPair for OpenSSLLocalKeyPair {
         Ok(uncompressed)
     }
 
-    fn raw_components(&self) -> Result<(EcKeyComponents)> {
+    fn raw_components(&self) -> Result<EcKeyComponents> {
         let private_key = self.ec_key.private_key();
         Ok(EcKeyComponents::new(
             private_key.to_vec(),
