@@ -31,7 +31,7 @@ impl<D: fmt::Display + Send + Sync + 'static> fmt::Debug for Context<D> {
 
 pub type Result<T> = result::Result<T, Error>;
 
-#[derive(Debug)]
+#[derive(Debug, thiserror::Error)]
 pub struct Error(Box<Context<ErrorKind>>);
 
 impl fmt::Display for Error {
@@ -105,7 +105,7 @@ pub enum ErrorKind {
 
     #[cfg(feature = "backend-openssl")]
     #[error("OpenSSL error: {0}")]
-    OpenSSLError(#[source] openssl::error::ErrorStack),
+    OpenSSLError(#[from] openssl::error::ErrorStack),
 }
 
 impl From<base64::DecodeError> for Error {
@@ -118,13 +118,6 @@ impl From<base64::DecodeError> for Error {
 #[cfg(feature = "backend-openssl")]
 macro_rules! impl_from_error {
     ($(($variant:ident, $type:ty)),+) => ($(
-        impl From<$type> for ErrorKind {
-            #[inline]
-            fn from(e: $type) -> ErrorKind {
-                ErrorKind::$variant(e)
-            }
-        }
-
         impl From<$type> for Error {
             #[inline]
             fn from(e: $type) -> Error {
