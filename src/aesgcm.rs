@@ -221,7 +221,7 @@ fn encode_keys(raw_key1: &[u8], raw_key2: &[u8]) -> Result<Vec<u8>> {
     let mut combined = vec![0u8; ECE_WEBPUSH_AESGCM_KEYPAIR_LENGTH];
 
     if raw_key1.len() > ECE_WEBPUSH_RAW_KEY_LENGTH || raw_key2.len() > ECE_WEBPUSH_RAW_KEY_LENGTH {
-        return Err(ErrorKind::InvalidKeyLength.into());
+        return Err(Error::InvalidKeyLength);
     }
     // length prefix each key
     combined[0] = 0;
