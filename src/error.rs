@@ -40,7 +40,7 @@ pub enum Error {
     EncryptPadding,
 
     #[error("Could not decode base64 entry")]
-    DecodeError,
+    DecodeError(#[from] base64::DecodeError),
 
     #[error("Crypto backend error")]
     CryptoError,
@@ -48,11 +48,4 @@ pub enum Error {
     #[cfg(feature = "backend-openssl")]
     #[error("OpenSSL error: {0}")]
     OpenSSLError(#[from] openssl::error::ErrorStack),
-}
-
-impl From<base64::DecodeError> for Error {
-    #[inline]
-    fn from(_: base64::DecodeError) -> Error {
-        Error::DecodeError
-    }
 }
