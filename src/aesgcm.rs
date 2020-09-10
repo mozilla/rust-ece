@@ -186,7 +186,7 @@ impl EceWebPush for AesGcmEceWebPush {
         if padding_size >= block.len() - 2 {
             return Err(Error::DecryptPadding);
         }
-        if block[2..(2+padding_size)].iter().any(|b| *b != 0u8) {
+        if block[2..(2 + padding_size)].iter().any(|b| *b != 0u8) {
             return Err(Error::DecryptPadding);
         }
         Ok(&block[(2 + padding_size)..])
