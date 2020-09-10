@@ -1,6 +1,6 @@
 [package]
 name = "ece"
-version = "1.2.0"
+version = "1.2.1"
 authors = ["Edouard Oger <eoger@fastmail.com>", "JR Conlin <jrconlin@gmail.com>"]
 license = "MPL-2.0"
 edition = "2018"
@@ -12,12 +12,12 @@ keywords = ["http-ece", "web-push"]
 byteorder = "1.3"
 thiserror = "1.0"
 base64 = "0.12"
-hkdf = { version = "0.8", optional = true }
+hkdf = { version = "0.9", optional = true }
 lazy_static = { version = "1.4", optional = true }
 once_cell = "1.4"
 openssl = { version = "0.10", optional = true }
 serde = { version = "1.0", features = ["derive"], optional = true }
-sha2 = { version = "0.8", optional = true }
+sha2 = { version = "0.9", optional = true }
 
 [dev-dependencies]
 hex = "0.4"

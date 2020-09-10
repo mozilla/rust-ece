@@ -395,11 +395,16 @@ mod aesgcm_tests {
 
         let result = try_decrypt(priv_key_raw, pub_key_raw, auth_raw, &block).unwrap();
 
-        println!("Result: b64={}", base64::encode_config(&result, base64::URL_SAFE_NO_PAD));
-        println!("Plaintext: b64={}", base64::encode_config(&plaintext, base64::URL_SAFE_NO_PAD));
+        println!(
+            "Result: b64={}",
+            base64::encode_config(&result, base64::URL_SAFE_NO_PAD)
+        );
+        println!(
+            "Plaintext: b64={}",
+            base64::encode_config(&plaintext, base64::URL_SAFE_NO_PAD)
+        );
         assert!(result == plaintext)
     }
-
 
     #[test]
     fn test_e2e() {
