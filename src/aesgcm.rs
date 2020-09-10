@@ -182,7 +182,14 @@ impl EceWebPush for AesGcmEceWebPush {
     }
 
     fn unpad(block: &[u8], _: bool) -> Result<&[u8]> {
-        Ok(&block[2..])
+        let padding_size = (((block[0] as u16) << 8) | block[1] as u16) as usize;
+        if padding_size >= block.len() - 2 {
+            return Err(Error::DecryptPadding);
+        }
+        if block[2..(2+padding_size)].iter().any(|b| *b != 0u8) {
+            return Err(Error::DecryptPadding);
+        }
+        Ok(&block[(2 + padding_size)..])
     }
 
     /// Derives the "aesgcm" decryption keyn and nonce given the receiver private

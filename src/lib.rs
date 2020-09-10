@@ -370,6 +370,38 @@ mod aesgcm_tests {
     }
 
     #[test]
+    fn test_decode_padding() {
+        // generated the content using pywebpush, which verified against the client.
+        let auth_raw = "LsuUOBKVQRY6-l7_Ajo-Ag";
+        let priv_key_raw = "yerDmA9uNFoaUnSt2TkWWLwPseG1qtzS2zdjUl8Z7tc";
+        let pub_key_raw = "BLBlTYure2QVhJCiDt4gRL0JNmUBMxtNB5B6Z1hDg5h-Epw6mVFV4whoYGBlWNY-ENR1FObkGFyMf7-6ZMHMAxw";
+
+        // Incoming Crypto-Key: dh=
+        let dh = "BCX7KJ_1Em-LjeB56E2KDoMjKDhTaDhjv8c6dwbvZQZ_Gsfp3AT54x2zYUPcBwd1GVyGsk55ProJ98cFrVxrPz4";
+        // Incoming Encryption-Key: salt=
+        let salt = "x2I2OZpSCoe-Cc5UW36Nng";
+        // Incoming Body (this is normally raw bytes. It's encoded here for presentation)
+        let ciphertext = base64::decode_config("Ua3-WW5kTbt11dBTiXBP6_hLBYhBNOtDFfue5QHMTd2DicL0wutDnt5z9pjRJ76w562egPq5qro95YLnsX0NWGmDQbsQ0Azds6jcBGsxHPt0p5GELAtR4AJj2OsB_LV7dTuGHN2SqsyXLARjTFN2wsF3xWhmuw",
+            base64::URL_SAFE_NO_PAD).unwrap();
+        let plaintext = "Tabs are the real indent";
+
+        let block = AesGcmEncryptedBlock::new(
+            &base64::decode_config(dh, base64::URL_SAFE_NO_PAD).unwrap(),
+            &base64::decode_config(salt, base64::URL_SAFE_NO_PAD).unwrap(),
+            4096,
+            ciphertext,
+        )
+        .unwrap();
+
+        let result = try_decrypt(priv_key_raw, pub_key_raw, auth_raw, &block).unwrap();
+
+        println!("Result: b64={}", base64::encode_config(&result, base64::URL_SAFE_NO_PAD));
+        println!("Plaintext: b64={}", base64::encode_config(&plaintext, base64::URL_SAFE_NO_PAD));
+        assert!(result == plaintext)
+    }
+
+
+    #[test]
     fn test_e2e() {
         let (local_key, remote_key) = generate_keys().unwrap();
         let plaintext = b"When I grow up, I want to be a watermelon";
