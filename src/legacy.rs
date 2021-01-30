@@ -92,10 +92,10 @@ mod aesgcm_tests {
             params,
         )?;
         Ok(AesGcmTestPayload {
-            dh : hex::encode(encrypted_block.dh),
-            salt : hex::encode(encrypted_block.salt),
-            rs : encrypted_block.rs,
-            ciphertext : hex::encode(encrypted_block.ciphertext),
+            dh: hex::encode(encrypted_block.dh),
+            salt: hex::encode(encrypted_block.salt),
+            rs: encrypted_block.rs,
+            ciphertext: hex::encode(encrypted_block.ciphertext),
         })
     }
 
@@ -170,7 +170,10 @@ mod aesgcm_tests {
             4096,
             "I am the walrus",
         ).unwrap();
-        println!("Result {:?}",encrypted_block);
-        assert_eq!(encrypted_block.ciphertext, "ea7a80414304f2136ac39277925f1ca55549ca55ca62a64e7ac7991bc52e78aa40");
+        println!("Result {:?}", encrypted_block);
+        assert_eq!(
+            encrypted_block.ciphertext,
+            "ea7a80414304f2136ac39277925f1ca55549ca55ca62a64e7ac7991bc52e78aa40"
+        );
     }
 }
