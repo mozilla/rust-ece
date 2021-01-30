@@ -176,4 +176,20 @@ mod aesgcm_tests {
             "ea7a80414304f2136ac39277925f1ca55549ca55ca62a64e7ac7991bc52e78aa40"
         );
     }
+
+    #[test]
+    fn test_decrypt_ietf_rfc() {
+        let plaintext = try_decrypt(
+            "f455a5d79fd05100160da0f7937979d19059409e1abb6ec5d55e05d2e2d20ff3",
+            "042124063ccbf19dc2fa88b643ba04e6dd8da7ea7ba2c8c62e0f77a943f4c2fa914f6d44116c9fd1c40341c6a440cab3e2140a60e4378a5da735972de078005105",
+            "476f6f20676f6f206727206a6f6f6221",
+            &AesGcmTestPayload {
+                ciphertext : "ea7a80414304f2136ac39277925f1ca55549ca55ca62a64e7ac7991bc52e78aa40".to_owned(),
+                salt : "96781aadbc8a7cca22f59ef9c585e692".to_owned(),
+                dh : "04da110db6fce091a6f20e59e42171bab4aab17589d7522d7d71166152c4f3963b0989038d7b0811ce1aab161a4351bc06a917089e833e90eb5ad7568ff9ae8075".to_owned(),
+                rs : 4096,
+            }
+        ).unwrap();
+        assert_eq!(plaintext, "I am the walrus");
+    }
 }
