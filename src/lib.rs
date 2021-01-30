@@ -8,6 +8,7 @@ mod aesgcm;
 mod common;
 pub mod crypto;
 mod error;
+pub mod legacy;
 
 pub use crate::{
     aes128gcm::Aes128GcmEceWebPush,
