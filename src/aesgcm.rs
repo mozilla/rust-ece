@@ -119,7 +119,7 @@ impl AesGcmEceWebPush {
         params: WebPushParams,
     ) -> Result<AesGcmEncryptedBlock> {
         let cryptographer = crypto::holder::get_cryptographer();
-        let salt = {
+        let salt = if let Some(salt) = params.salt {salt} else {
             let mut salt = [0u8; ECE_SALT_LENGTH];
             cryptographer.random_bytes(&mut salt)?;
             salt.to_vec()
