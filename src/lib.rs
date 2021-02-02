@@ -35,6 +35,7 @@ pub fn generate_keypair_and_auth_secret(
 /// * `salt` : The locally generated random salt
 /// * `data` : The data to encrypt
 ///
+/// *For the legacy AESGCM version, go to* [`encrypt_aesgcm`](crate::legacy::encrypt_aesgcm)
 pub fn encrypt(remote_pub: &[u8], remote_auth: &[u8], salt: &[u8], data: &[u8]) -> Result<Vec<u8>> {
     let cryptographer = crypto::holder::get_cryptographer();
     let remote_key = cryptographer.import_public_key(remote_pub)?;
@@ -59,6 +60,7 @@ pub fn encrypt(remote_pub: &[u8], remote_auth: &[u8], salt: &[u8], data: &[u8]) 
 /// * `auth` : The locally generated auth token (this value was shared with the encryptor)
 /// * `data` : The encrypted data block
 ///
+/// *For the legacy AESGCM version, go to* [`decrypt_aesgcm`](crate::legacy::decrypt_aesgcm)
 pub fn decrypt(components: &EcKeyComponents, auth: &[u8], data: &[u8]) -> Result<Vec<u8>> {
     let cryptographer = crypto::holder::get_cryptographer();
     let priv_key = cryptographer.import_key_pair(components).unwrap();

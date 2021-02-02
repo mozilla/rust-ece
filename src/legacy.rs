@@ -13,8 +13,8 @@ use crate::{
 ///
 /// * `remote_pub` : the remote public key
 /// * `remote_auth` : the remote authorization token
-/// * `salt &[u8]` : the locally generated random salt
-/// * `data &[u8]` : the data to encrypt
+/// * `salt` : the locally generated random salt
+/// * `data` : the data to encrypt
 ///
 pub fn encrypt_aesgcm(
     remote_pub: &[u8],
