@@ -30,10 +30,10 @@ pub fn generate_keypair_and_auth_secret(
 
 /// Encrypt a block using default AES128GCM encoding.
 ///
-/// param remote_pub &[u8] - The remote public key
-/// param remote_auth &u8 - The remote authorization token
-/// param salt &[u8] - The locally generated random salt
-/// param data &[u8] - The data to encrypt
+/// * `remote_pub` : The remote public key
+/// * `remote_auth` : The remote authorization token
+/// * `salt` : The locally generated random salt
+/// * `data` : The data to encrypt
 ///
 pub fn encrypt(remote_pub: &[u8], remote_auth: &[u8], salt: &[u8], data: &[u8]) -> Result<Vec<u8>> {
     let cryptographer = crypto::holder::get_cryptographer();
@@ -55,9 +55,9 @@ pub fn encrypt(remote_pub: &[u8], remote_auth: &[u8], salt: &[u8], data: &[u8]) 
 
 /// Decrypt a block using default AES128GCM encoding.
 ///
-/// param components &str - The locally generated private key components.
-/// param auth &str - The locally generated auth token (this value was shared with the encryptor)
-/// param data &[u8] - The encrypted data block
+/// * `components` : The locally generated private key components.
+/// * `auth` : The locally generated auth token (this value was shared with the encryptor)
+/// * `data` : The encrypted data block
 ///
 pub fn decrypt(components: &EcKeyComponents, auth: &[u8], data: &[u8]) -> Result<Vec<u8>> {
     let cryptographer = crypto::holder::get_cryptographer();

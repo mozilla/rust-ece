@@ -11,10 +11,10 @@ use crate::{
 
 /// Encrypt a block using legacy AESGCM encoding.
 ///
-/// param remote_pub &[u8] - The remote public key
-/// param remote_auth &u8 - The remote authorization token
-/// param salt &[u8] - The locally generated random salt
-/// param data &[u8] - The data to encrypt
+/// * `remote_pub` : the remote public key
+/// * `remote_auth` : the remote authorization token
+/// * `salt &[u8]` : the locally generated random salt
+/// * `data &[u8]` : the data to encrypt
 ///
 pub fn encrypt_aesgcm(
     remote_pub: &[u8],
@@ -35,9 +35,9 @@ pub fn encrypt_aesgcm(
 
 /// Decrypt a block using legacy AESGCM encoding.
 ///
-/// param components &str - The locally generated private key components.
-/// param auth &str - The locally generated auth token (this value was shared with the encryptor)
-/// param data &[u8] - The encrypted data block
+/// * `components` : the locally generated private key components.
+/// * `auth` : the locally generated auth token (this value was shared with the encryptor).
+/// * `data` : the encrypted data block
 ///
 pub fn decrypt_aesgcm(
     components: &EcKeyComponents,
@@ -158,9 +158,9 @@ mod aesgcm_tests {
         Ok(())
     }
 
-    /// Test data from [IETF Web Push Encryption Draft 5](https://tools.ietf.org/html/draft-ietf-webpush-encryption-04#section-5)
     #[test]
     fn try_encrypt_ietf_rfc() {
+        // Test data from [IETF Web Push Encryption Draft 5](https://tools.ietf.org/html/draft-ietf-webpush-encryption-04#section-5)
         let encrypted_block = try_encrypt(
             "9c249c7a4f90a448e638e953fab437f27673bdd3e5a9ad34672d22ea6d8e26f6",
             "04da110db6fce091a6f20e59e42171bab4aab17589d7522d7d71166152c4f3963b0989038d7b0811ce1aab161a4351bc06a917089e833e90eb5ad7568ff9ae8075",
@@ -177,9 +177,10 @@ mod aesgcm_tests {
         );
     }
 
-    /// Test data from [IETF Web Push Encryption Draft 5](https://tools.ietf.org/html/draft-ietf-webpush-encryption-04#section-5)
+    
     #[test]
     fn test_decrypt_ietf_rfc() {
+        // Test data from [IETF Web Push Encryption Draft 5](https://tools.ietf.org/html/draft-ietf-webpush-encryption-04#section-5)
         let plaintext = try_decrypt(
             "f455a5d79fd05100160da0f7937979d19059409e1abb6ec5d55e05d2e2d20ff3",
             "042124063ccbf19dc2fa88b643ba04e6dd8da7ea7ba2c8c62e0f77a943f4c2fa914f6d44116c9fd1c40341c6a440cab3e2140a60e4378a5da735972de078005105",
