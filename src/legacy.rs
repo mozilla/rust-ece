@@ -158,6 +158,7 @@ mod aesgcm_tests {
         Ok(())
     }
 
+    /// Test data from [IETF Web Push Encryption Draft 5](https://tools.ietf.org/html/draft-ietf-webpush-encryption-04#section-5)
     #[test]
     fn try_encrypt_ietf_rfc() {
         let encrypted_block = try_encrypt(
@@ -176,6 +177,7 @@ mod aesgcm_tests {
         );
     }
 
+    /// Test data from [IETF Web Push Encryption Draft 5](https://tools.ietf.org/html/draft-ietf-webpush-encryption-04#section-5)
     #[test]
     fn test_decrypt_ietf_rfc() {
         let plaintext = try_decrypt(
