@@ -408,29 +408,6 @@ mod aesgcm_tests {
     }
 
     #[test]
-    fn test_e2e() {
-        let (local_key, remote_key) = generate_keys().unwrap();
-        let plaintext = b"When I grow up, I want to be a watermelon";
-        let mut auth_secret = vec![0u8; 16];
-        let cryptographer = crypto::holder::get_cryptographer();
-        cryptographer.random_bytes(&mut auth_secret).unwrap();
-        let remote_public = cryptographer
-            .import_public_key(&remote_key.pub_as_raw().unwrap())
-            .unwrap();
-        let params = WebPushParams::default();
-        let ciphertext = AesGcmEceWebPush::encrypt_with_keys(
-            &*local_key,
-            &*remote_public,
-            &auth_secret,
-            plaintext,
-            params,
-        )
-        .unwrap();
-        let decrypted = AesGcmEceWebPush::decrypt(&*remote_key, &auth_secret, &ciphertext).unwrap();
-        assert_eq!(decrypted, plaintext.to_vec());
-    }
-
-    #[test]
     fn test_keygen() {
         let cryptographer = crypto::holder::get_cryptographer();
         cryptographer.generate_ephemeral_keypair().unwrap();
