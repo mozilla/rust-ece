@@ -88,7 +88,7 @@ impl AesGcmEncryptedBlock {
     }
 }
 /// Web Push encryption structure for the legacy AESGCM encoding scheme ([Web Push Encryption Draft 4](https://tools.ietf.org/html/draft-ietf-webpush-encryption-04))
-/// 
+///
 /// This structure is meant for advanced use. For simple encryption/decryption, use the top-level [`encrypt_aesgcm`](crate::legacy::encrypt_aesgcm) and [`decrypt_aesgcm`](crate::legacy::decrypt_aesgcm) functions.
 pub struct AesGcmEceWebPush;
 impl AesGcmEceWebPush {

@@ -177,7 +177,6 @@ mod aesgcm_tests {
         );
     }
 
-    
     #[test]
     fn test_decrypt_ietf_rfc() {
         // Test data from [IETF Web Push Encryption Draft 5](https://tools.ietf.org/html/draft-ietf-webpush-encryption-04#section-5)
