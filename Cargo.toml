@@ -26,3 +26,6 @@ hex = "0.4"
 default = ["backend-openssl", "serializable-keys"]
 serializable-keys = ["serde"]
 backend-openssl = ["openssl", "lazy_static", "hkdf", "sha2"]
+
+[package.metadata.release]
+no-dev-version = true
