@@ -27,7 +27,11 @@ Currently, two HTTP ece schemes are available to consumers of the crate:
 We use [`cargo-release`](https://crates.io/crates/cargo-release) to manage releases. To cut a new release,
 make sure you have it installed and then:
 
-* Run `cargo release --dry-run -vv [major|minor|patch]` and check that the things it's proposing to do
-  seem sensible.
-* Run `cargo release [major|minor|patch]` to prepare, commit, tag and publish the release.
+1. Start a new branch for the release:
+     * `git checkout -b release-vX.Y.Z`
+     * `git push -u origin release-vX.Y.Z`
+2. Run `cargo release --dry-run -vv [major|minor|patch]` and check that the things
+   it's proposing to do seem sensible.
+3. Run `cargo release [major|minor|patch]` to prepare, commit, tag and publish the release.
+4. Make a PR from your `release-vX.Y.Z` branch to request it be merged to the main branch.
 
