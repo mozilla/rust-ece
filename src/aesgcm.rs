@@ -65,7 +65,7 @@ impl AesGcmEncryptedBlock {
         let dh = base64::encode_config(&self.dh, base64::URL_SAFE_NO_PAD);
         let crypto_key = match public_key {
             Some(public_key) => format!(
-                "dh={}, p256ecdsa={}",
+                "dh={}; p256ecdsa={}",
                 dh,
                 base64::encode_config(public_key, base64::URL_SAFE_NO_PAD)
             ),
