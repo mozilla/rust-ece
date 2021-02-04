@@ -59,11 +59,11 @@ impl AesGcmEncryptedBlock {
     /// so it can be included in the `Crypto-Key` field.
     ///
     /// Disclaimer : You will need to manually add the Authorization field for VAPID containing the JSON Web Token
-    pub fn headers(&self, public_key: Option<&[u8]>) -> Vec<(&'static str, String)> {
+    pub fn headers(&self, vapid_public_key: Option<&[u8]>) -> Vec<(&'static str, String)> {
         let mut result = Vec::new();
         let mut rs = "".to_owned();
         let dh = base64::encode_config(&self.dh, base64::URL_SAFE_NO_PAD);
-        let crypto_key = match public_key {
+        let crypto_key = match vapid_public_key {
             Some(public_key) => format!(
                 "dh={}; p256ecdsa={}",
                 dh,
