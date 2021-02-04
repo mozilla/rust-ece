@@ -14,7 +14,6 @@ use crate::{
     crypto::{self, LocalKeyPair, RemotePublicKey},
     error::*,
 };
-use std::collections::HashMap;
 
 const ECE_AESGCM_PAD_SIZE: usize = 2;
 
@@ -55,35 +54,41 @@ impl AesGcmEncryptedBlock {
         })
     }
 
-    /// Return the headers Hash, NOTE you may need to merge Crypto-Key if there's
-    /// already a VAPID element present.
-    pub fn headers(self) -> HashMap<String, String> {
-        let mut result: HashMap<String, String> = HashMap::new();
+    /// Return the headers Hash.
+    /// If you're using VAPID, provide the `p256ecdsa` public key that signed the Json Web Token
+    /// so it can be included in the `Crypto-Key` field.
+    ///
+    /// Disclaimer : You will need to manually add the Authorization field for VAPID containing the JSON Web Token
+    pub fn headers(&self, public_key: Option<&[u8]>) -> Vec<(&'static str, String)> {
+        let mut result = Vec::new();
         let mut rs = "".to_owned();
-        result.insert(
-            "Crypto-Key".to_owned(),
-            format!(
-                "dh={}",
-                base64::encode_config(&self.dh, base64::URL_SAFE_NO_PAD)
+        let dh = base64::encode_config(&self.dh, base64::URL_SAFE_NO_PAD);
+        let crypto_key = match public_key {
+            Some(public_key) => format!(
+                "dh={}, p256ecdsa={}",
+                dh,
+                base64::encode_config(public_key, base64::URL_SAFE_NO_PAD)
             ),
-        );
+            None => format!("dh={}", dh),
+        };
+        result.push(("Crypto-Key", crypto_key));
         if self.rs > 0 {
             rs = format!(";rs={}", self.rs);
         }
-        result.insert(
-            "Encryption".to_owned(),
+        result.push((
+            "Encryption",
             format!(
                 "salt={}{}",
                 base64::encode_config(&self.salt, base64::URL_SAFE_NO_PAD),
                 rs
             ),
-        );
+        ));
         result
     }
 
     /// Encode the body as a String.
     /// If you need the bytes, probably just call .ciphertext directly
-    pub fn body(self) -> String {
+    pub fn body(&self) -> String {
         base64::encode_config(&self.ciphertext, base64::URL_SAFE_NO_PAD)
     }
 }
