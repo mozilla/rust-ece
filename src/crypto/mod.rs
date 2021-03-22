@@ -111,7 +111,7 @@ pub trait Cryptographer: Send + Sync + 'static {
 ///
 #[cfg(any(test, feature = "backend-test-helper"))]
 pub fn test_cryptographer<T: Cryptographer>(cryptographer: T) {
-    use crate::{aes128gcm::Aes128GcmEceWebPush, common::WebPushParams};
+    use crate::{aes128gcm, common::WebPushParams};
 
     // These are test data from the RFC.
     let plaintext = "When I grow up, I want to be a watermelon";
@@ -135,7 +135,7 @@ pub fn test_cryptographer<T: Cryptographer>(cryptographer: T) {
     };
 
     assert_eq!(
-        Aes128GcmEceWebPush::encrypt_with_keys(
+        aes128gcm::encrypt(
             &*local_key_pair,
             &*remote_pub_key,
             &auth_secret,
@@ -154,7 +154,7 @@ pub fn test_cryptographer<T: Cryptographer>(cryptographer: T) {
     let local_key_pair = cryptographer.import_key_pair(&ec_key).unwrap();
 
     assert_eq!(
-        Aes128GcmEceWebPush::decrypt(&*local_key_pair, &auth_secret, ciphertext.as_ref(),).unwrap(),
+        aes128gcm::decrypt(&*local_key_pair, &auth_secret, ciphertext.as_ref(),).unwrap(),
         plaintext.as_bytes()
     );
 }

@@ -3,12 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 pub use crate::aesgcm::AesGcmEncryptedBlock;
-use crate::{
-    aesgcm::{AesGcmEceWebPush, ECE_AESGCM_PAD_SIZE},
-    common::WebPushParams,
-    crypto::EcKeyComponents,
-    error::*,
-};
+use crate::{aesgcm, common::WebPushParams, crypto::EcKeyComponents, error::*};
 
 /// Encrypt a block using legacy AESGCM encoding.
 ///
@@ -28,8 +23,8 @@ pub fn encrypt_aesgcm(
     let cryptographer = crate::crypto::holder::get_cryptographer();
     let remote_key = cryptographer.import_public_key(remote_pub)?;
     let local_key_pair = cryptographer.generate_ephemeral_keypair()?;
-    let params = WebPushParams::new_for_plaintext(data, ECE_AESGCM_PAD_SIZE);
-    AesGcmEceWebPush::encrypt_with_keys(&*local_key_pair, &*remote_key, &remote_auth, data, params)
+    let params = WebPushParams::new_for_plaintext(data, aesgcm::ECE_AESGCM_PAD_SIZE);
+    aesgcm::encrypt(&*local_key_pair, &*remote_key, &remote_auth, data, params)
 }
 
 /// Decrypt a block using legacy AESGCM encoding.
@@ -49,7 +44,7 @@ pub fn decrypt_aesgcm(
 ) -> Result<Vec<u8>> {
     let cryptographer = crate::crypto::holder::get_cryptographer();
     let priv_key = cryptographer.import_key_pair(components).unwrap();
-    AesGcmEceWebPush::decrypt(&*priv_key, &auth, data)
+    aesgcm::decrypt(&*priv_key, &auth, data)
 }
 
 #[cfg(all(test, feature = "backend-openssl"))]
@@ -92,7 +87,7 @@ mod aesgcm_tests {
             pad_length,
             salt,
         };
-        let encrypted_block = AesGcmEceWebPush::encrypt_with_keys(
+        let encrypted_block = aesgcm::encrypt(
             &*local_key_pair,
             &*remote_pub_key,
             &auth_secret,
@@ -140,7 +135,7 @@ mod aesgcm_tests {
             .import_public_key(&remote_key.pub_as_raw().unwrap())
             .unwrap();
         let params = WebPushParams::default();
-        let encrypted_block = AesGcmEceWebPush::encrypt_with_keys(
+        let encrypted_block = aesgcm::encrypt(
             &*local_key,
             &*remote_public,
             &auth_secret,
@@ -148,8 +143,7 @@ mod aesgcm_tests {
             params,
         )
         .unwrap();
-        let decrypted =
-            AesGcmEceWebPush::decrypt(&*remote_key, &auth_secret, &encrypted_block).unwrap();
+        let decrypted = aesgcm::decrypt(&*remote_key, &auth_secret, &encrypted_block).unwrap();
         assert_eq!(decrypted, plaintext.to_vec());
     }
 
