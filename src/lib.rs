@@ -16,10 +16,7 @@ pub use crate::{
     error::*,
 };
 
-use crate::{
-    aes128gcm::Aes128GcmEceWebPush,
-    common::{get_random_padding_length, WebPushParams, ECE_WEBPUSH_AUTH_SECRET_LENGTH},
-};
+use crate::common::{get_random_padding_length, WebPushParams, ECE_WEBPUSH_AUTH_SECRET_LENGTH};
 
 /// Generate a local ECE key pair and authentication secret.
 ///
@@ -49,13 +46,7 @@ pub fn encrypt(remote_pub: &[u8], remote_auth: &[u8], data: &[u8]) -> Result<Vec
         pad_length: get_random_padding_length(&data, cryptographer)?,
         ..Default::default()
     };
-    Aes128GcmEceWebPush::encrypt_with_keys(
-        &*local_key_pair,
-        &*remote_key,
-        &remote_auth,
-        data,
-        params,
-    )
+    aes128gcm::encrypt(&*local_key_pair, &*remote_key, &remote_auth, data, params)
 }
 
 /// Decrypt a block using the AES128GCM encryption scheme.
@@ -70,7 +61,7 @@ pub fn encrypt(remote_pub: &[u8], remote_auth: &[u8], data: &[u8]) -> Result<Vec
 pub fn decrypt(components: &EcKeyComponents, auth: &[u8], data: &[u8]) -> Result<Vec<u8>> {
     let cryptographer = crypto::holder::get_cryptographer();
     let priv_key = cryptographer.import_key_pair(components).unwrap();
-    Aes128GcmEceWebPush::decrypt(&*priv_key, &auth, data)
+    aes128gcm::decrypt(&*priv_key, &auth, data)
 }
 
 /// Generate a pair of keys; useful for writing tests.
@@ -86,6 +77,7 @@ fn generate_keys() -> Result<(Box<dyn LocalKeyPair>, Box<dyn LocalKeyPair>)> {
 #[cfg(all(test, feature = "backend-openssl"))]
 mod aes128gcm_tests {
     use super::*;
+    use crate::common::ECE_TAG_LENGTH;
     use hex;
 
     #[allow(clippy::too_many_arguments)]
@@ -114,7 +106,7 @@ mod aes128gcm_tests {
             pad_length,
             salt,
         };
-        let ciphertext = Aes128GcmEceWebPush::encrypt_with_keys(
+        let ciphertext = aes128gcm::encrypt(
             &*local_key_pair,
             &*remote_pub_key,
             &auth_secret,
@@ -148,7 +140,22 @@ mod aes128gcm_tests {
     }
 
     #[test]
-    fn test_e2e() {
+    fn test_e2e_through_public_api() {
+        let (remote_key, auth_secret) = generate_keypair_and_auth_secret().unwrap();
+        let plaintext = b"When I grow up, I want to be a watermelon";
+        let ciphertext =
+            encrypt(&remote_key.pub_as_raw().unwrap(), &auth_secret, plaintext).unwrap();
+        let decrypted = decrypt(
+            &remote_key.raw_components().unwrap(),
+            &auth_secret,
+            &ciphertext,
+        )
+        .unwrap();
+        assert_eq!(decrypted, plaintext.to_vec());
+    }
+
+    #[test]
+    fn test_e2e_with_different_record_sizes_and_padding() {
         let (local_key, remote_key) = generate_keys().unwrap();
         let plaintext = b"When I grow up, I want to be a watermelon";
         let mut auth_secret = vec![0u8; 16];
@@ -157,18 +164,41 @@ mod aes128gcm_tests {
         let remote_public = cryptographer
             .import_public_key(&remote_key.pub_as_raw().unwrap())
             .unwrap();
-        let params = WebPushParams::default();
-        let ciphertext = Aes128GcmEceWebPush::encrypt_with_keys(
-            &*local_key,
-            &*remote_public,
-            &auth_secret,
-            plaintext,
-            params,
-        )
-        .unwrap();
-        let decrypted =
-            Aes128GcmEceWebPush::decrypt(&*remote_key, &auth_secret, &ciphertext).unwrap();
-        assert_eq!(decrypted, plaintext.to_vec());
+        let plen = plaintext.len();
+        // Try a variety of different record sizes. The numbers here aren't particularly deeply
+        // considered, just a selection of numbers that might be interesting.
+        let mut num_padding_errors = 0;
+        for plaintext_rs in &[2, 3, 7, 8, plen - 1, plen, plen + 1, 1024, 8192] {
+            let rs = (*plaintext_rs + ECE_TAG_LENGTH) as u32;
+            // Try a variety of padding lengths. Again, not deeply considered numbers.
+            for pad_length in &[0, 1, 2, 8, 37, 127, 128] {
+                let pad_length = *pad_length;
+                let params = WebPushParams {
+                    rs,
+                    pad_length,
+                    ..WebPushParams::default()
+                };
+                // It's possible that we'll have too much padding and not enough plaintext,
+                // so don't let that fail the test.
+                let ciphertext = match aes128gcm::encrypt(
+                    &*local_key,
+                    &*remote_public,
+                    &auth_secret,
+                    plaintext,
+                    params,
+                ) {
+                    Ok(ciphertext) => ciphertext,
+                    Err(Error::EncryptPadding) => {
+                        num_padding_errors += 1;
+                        continue;
+                    }
+                    Err(err) => panic!("Unexpected error: {:?}", err),
+                };
+                let decrypted =
+                    aes128gcm::decrypt(&*remote_key, &auth_secret, &ciphertext).unwrap();
+                assert_eq!(decrypted, plaintext.to_vec());
+            }
+        }
     }
 
     #[test]
@@ -229,7 +259,7 @@ mod aes128gcm_tests {
         .unwrap_err();
         match err {
             Error::HeaderTooShort => {}
-            _ => unreachable!(),
+            _ => panic!("Unexpected error {:?}", err),
         };
     }
 
@@ -244,7 +274,7 @@ mod aes128gcm_tests {
         .unwrap_err();
         match err {
             Error::InvalidKeyLength => {}
-            _ => unreachable!(),
+            _ => panic!("Unexpected error {:?}", err),
         };
     }
 
@@ -258,7 +288,7 @@ mod aes128gcm_tests {
         ).unwrap_err();
         match err {
             Error::OpenSSLError(_) => {}
-            _ => panic!("{:?}", err), //unreachable!(),
+            _ => panic!("Unexpected error {:?}", err),
         };
     }
 
@@ -272,7 +302,7 @@ mod aes128gcm_tests {
         ).unwrap_err();
         match err {
             Error::DecryptPadding => {}
-            _ => panic!("{:?}", err), //unreachable!(),
+            _ => panic!("Unexpected error {:?}", err),
         };
     }
 }
