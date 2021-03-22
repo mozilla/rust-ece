@@ -3,60 +3,69 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::{
-    crypto::{self, LocalKeyPair, RemotePublicKey},
+    crypto::{self, Cryptographer, LocalKeyPair, RemotePublicKey},
     error::*,
 };
 use byteorder::{BigEndian, ByteOrder};
 use std::cmp::min;
 
 // From keys.h:
-pub const ECE_AES_KEY_LENGTH: usize = 16;
-pub const ECE_NONCE_LENGTH: usize = 12;
+pub(crate) const ECE_AES_KEY_LENGTH: usize = 16;
+pub(crate) const ECE_NONCE_LENGTH: usize = 12;
 
 // From ece.h:
-pub const ECE_SALT_LENGTH: usize = 16;
-pub const ECE_TAG_LENGTH: usize = 16;
-//const ECE_WEBPUSH_PRIVATE_KEY_LENGTH: usize = 32;
-pub const ECE_WEBPUSH_PUBLIC_KEY_LENGTH: usize = 65;
-pub const ECE_WEBPUSH_AUTH_SECRET_LENGTH: usize = 16;
-const ECE_WEBPUSH_DEFAULT_RS: u32 = 4096;
+pub(crate) const ECE_SALT_LENGTH: usize = 16;
+pub(crate) const ECE_TAG_LENGTH: usize = 16;
+pub(crate) const ECE_WEBPUSH_PUBLIC_KEY_LENGTH: usize = 65;
+pub(crate) const ECE_WEBPUSH_AUTH_SECRET_LENGTH: usize = 16;
+pub(crate) const ECE_WEBPUSH_DEFAULT_RS: u32 = 4096;
 
 // TODO: Make it nicer to use with a builder pattern.
-pub struct WebPushParams {
+pub(crate) struct WebPushParams {
     pub rs: u32,
     pub pad_length: usize,
     pub salt: Option<Vec<u8>>,
 }
 
-impl WebPushParams {
-    /// Random salt, record size = 4096 and padding length = 0.
-    pub fn default() -> Self {
+impl Default for WebPushParams {
+    fn default() -> Self {
+        // Random salt, record size = 4096 and padding length = 0.
         Self {
             rs: ECE_WEBPUSH_DEFAULT_RS,
-            pad_length: 2,
+            pad_length: 0,
             salt: None,
-        }
-    }
-
-    /// Never use the same salt twice as it will derive the same content encryption
-    /// key for multiple messages if the same sender private key is used!
-    pub fn new(rs: u32, pad_length: usize, salt: Vec<u8>) -> Self {
-        Self {
-            rs,
-            pad_length,
-            salt: Some(salt),
         }
     }
 }
 
-pub enum EceMode {
+/// Randomly select a padding length to apply to the given plaintext.
+///
+/// Some care is taken not to exceed the maximum record size.
+///
+pub fn get_random_padding_length(
+    plaintext: &[u8],
+    cryptographer: &dyn Cryptographer,
+) -> Result<usize> {
+    // For `aesgcm`, we need to ensure we don't exceed the size of a single record
+    // after the plaintext has been padded (minimum 2 bytes) and encrypted.
+    const MAX_SIZE: usize = (ECE_WEBPUSH_DEFAULT_RS as usize) - ECE_TAG_LENGTH - 2 - 1;
+    let mut padr = [0u8; 2];
+    cryptographer.random_bytes(&mut padr)?;
+    let mut pad_length = ((usize::from(padr[0]) + (usize::from(padr[1]) << 8)) % MAX_SIZE) + 1;
+    if plaintext.len() + pad_length >= MAX_SIZE {
+        pad_length = MAX_SIZE - plaintext.len();
+    }
+    Ok(pad_length)
+}
+
+pub(crate) enum EceMode {
     ENCRYPT,
     DECRYPT,
 }
 
-pub type KeyAndNonce = (Vec<u8>, Vec<u8>);
+pub(crate) type KeyAndNonce = (Vec<u8>, Vec<u8>);
 
-pub trait EceWebPush {
+pub(crate) trait EceWebPush {
     fn common_encrypt(
         local_prv_key: &dyn LocalKeyPair,
         remote_pub_key: &dyn RemotePublicKey,
@@ -151,6 +160,12 @@ pub trait EceWebPush {
             plaintext_start = plaintext_end;
             counter += 1;
         }
+        // Cheap way to error out if the plaintext didn't fit in a single record.
+        // We're going to refactor away the multi-record stuff entirely in a future PR,
+        // but doing this here now lets us set API expectations for the caller.
+        if !Self::allow_multiple_records() && counter > 1 {
+            return Err(Error::PlaintextTooLong);
+        }
         Ok(ciphertext)
     }
 
@@ -184,6 +199,12 @@ pub trait EceWebPush {
         )?;
         let chunks = ciphertext.chunks(rs as usize);
         let records_count = chunks.len();
+        // Cheap way to error out if there are multiple records.
+        // We're going to refactor away the multi-record stuff entirely in a future PR,
+        // but doing this here now lets us set API expectations for the caller.
+        if !Self::allow_multiple_records() && records_count > 1 {
+            return Err(Error::MultipleRecordsNotSupported);
+        }
         let items = chunks
             .enumerate()
             .map(|(count, record)| {
@@ -210,6 +231,7 @@ pub trait EceWebPush {
     /// byte.
     fn min_block_pad_length(pad_len: usize, max_block_len: usize) -> usize;
     fn needs_trailer(rs: u32, ciphertext_len: usize) -> bool;
+    fn allow_multiple_records() -> bool;
     fn pad(plaintext: &[u8], block_pad_len: usize, last_record: bool) -> Result<Vec<u8>>;
     fn unpad(block: &[u8], last_record: bool) -> Result<&[u8]>;
     fn derive_key_and_nonce(

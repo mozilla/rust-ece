@@ -29,27 +29,8 @@ const ECE_AES128GCM_NONCE_INFO: &str = "Content-Encoding: nonce\0";
 /// Web Push encryption structure for the AES128GCM encoding scheme ([RFC8591](https://tools.ietf.org/html/rfc8291))
 ///
 /// This structure is meant for advanced use. For simple encryption/decryption, use the top-level [`encrypt`](crate::encrypt) and [`decrypt`](crate::decrypt) functions.
-pub struct Aes128GcmEceWebPush;
+pub(crate) struct Aes128GcmEceWebPush;
 impl Aes128GcmEceWebPush {
-    /// Encrypts a Web Push message using the "aes128gcm" scheme. This function
-    /// automatically generates an ephemeral ECDH key pair.
-    pub fn encrypt(
-        remote_pub_key: &dyn RemotePublicKey,
-        auth_secret: &[u8],
-        plaintext: &[u8],
-        params: WebPushParams,
-    ) -> Result<Vec<u8>> {
-        let cryptographer = crypto::holder::get_cryptographer();
-        let local_prv_key = cryptographer.generate_ephemeral_keypair()?;
-        Self::encrypt_with_keys(
-            &*local_prv_key,
-            remote_pub_key,
-            auth_secret,
-            plaintext,
-            params,
-        )
-    }
-
     /// Encrypts a Web Push message using the "aes128gcm" scheme, with an explicit
     /// sender key. The sender key can be reused.
     pub fn encrypt_with_keys(
@@ -134,6 +115,10 @@ impl EceWebPush for Aes128GcmEceWebPush {
     /// a padding scheme that doesn't need a trailer.
     fn needs_trailer(_: u32, _: usize) -> bool {
         false
+    }
+
+    fn allow_multiple_records() -> bool {
+        true
     }
 
     fn pad_size() -> usize {
