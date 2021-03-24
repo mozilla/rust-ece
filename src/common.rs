@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::{
-    crypto::{self, Cryptographer, LocalKeyPair, RemotePublicKey},
+    crypto::{self, LocalKeyPair, RemotePublicKey},
     error::*,
 };
 use byteorder::{BigEndian, ByteOrder};
@@ -19,6 +19,7 @@ pub(crate) const ECE_TAG_LENGTH: usize = 16;
 pub(crate) const ECE_WEBPUSH_PUBLIC_KEY_LENGTH: usize = 65;
 pub(crate) const ECE_WEBPUSH_AUTH_SECRET_LENGTH: usize = 16;
 pub(crate) const ECE_WEBPUSH_DEFAULT_RS: u32 = 4096;
+pub(crate) const ECE_WEBPUSH_DEFAULT_PADDING_BLOCK_SIZE: usize = 128;
 
 // TODO: Make it nicer to use with a builder pattern.
 pub(crate) struct WebPushParams {
@@ -38,24 +39,28 @@ impl Default for WebPushParams {
     }
 }
 
-/// Randomly select a padding length to apply to the given plaintext.
-///
-/// Some care is taken not to exceed the maximum record size.
-///
-pub fn get_random_padding_length(
-    plaintext: &[u8],
-    cryptographer: &dyn Cryptographer,
-) -> Result<usize> {
-    // For `aesgcm`, we need to ensure we don't exceed the size of a single record
-    // after the plaintext has been padded (minimum 2 bytes) and encrypted.
-    const MAX_SIZE: usize = (ECE_WEBPUSH_DEFAULT_RS as usize) - ECE_TAG_LENGTH - 2 - 1;
-    let mut padr = [0u8; 2];
-    cryptographer.random_bytes(&mut padr)?;
-    let mut pad_length = ((usize::from(padr[0]) + (usize::from(padr[1]) << 8)) % MAX_SIZE) + 1;
-    if plaintext.len() + pad_length >= MAX_SIZE {
-        pad_length = MAX_SIZE - plaintext.len();
+impl WebPushParams {
+    /// Create new parameters suitable for use with the given plaintext.
+    ///
+    /// This constructor tries to provide some sensible defaults for using
+    /// ECE to encrypt the given plaintext, including:
+    ///
+    ///    * padding it to a multiple of 128 bytes.
+    ///    * using a random salt
+    ///
+    pub(crate) fn new_for_plaintext(plaintext: &[u8], min_pad_length: usize) -> Self {
+        // We want (plaintext.len() + pad_length) % BLOCK_SIZE == 0, but need to
+        // accomodate the non-zero minimum padding added by the encryption process.
+        let mut pad_length = ECE_WEBPUSH_DEFAULT_PADDING_BLOCK_SIZE
+            - (plaintext.len() % ECE_WEBPUSH_DEFAULT_PADDING_BLOCK_SIZE);
+        if pad_length < min_pad_length {
+            pad_length += ECE_WEBPUSH_DEFAULT_PADDING_BLOCK_SIZE;
+        }
+        WebPushParams {
+            pad_length,
+            ..Default::default()
+        }
     }
-    Ok(pad_length)
 }
 
 pub(crate) enum EceMode {
@@ -270,4 +275,63 @@ fn generate_iv(nonce: &[u8], counter: usize) -> [u8; ECE_NONCE_LENGTH] {
     let mask = BigEndian::read_u64(&nonce[offset..]);
     BigEndian::write_u64(&mut iv[offset..], mask ^ (counter as u64));
     iv
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_pad_to_block_size() {
+        const BLOCK_SIZE: usize = ECE_WEBPUSH_DEFAULT_PADDING_BLOCK_SIZE;
+        assert_eq!(
+            WebPushParams::new_for_plaintext(&[0; 0], 1).pad_length,
+            BLOCK_SIZE
+        );
+        assert_eq!(
+            WebPushParams::new_for_plaintext(&[0; 1], 1).pad_length,
+            BLOCK_SIZE - 1
+        );
+        assert_eq!(
+            WebPushParams::new_for_plaintext(&[0; BLOCK_SIZE - 2], 1).pad_length,
+            2
+        );
+        assert_eq!(
+            WebPushParams::new_for_plaintext(&[0; BLOCK_SIZE - 1], 1).pad_length,
+            1
+        );
+        assert_eq!(
+            WebPushParams::new_for_plaintext(&[0; BLOCK_SIZE], 1).pad_length,
+            BLOCK_SIZE
+        );
+        assert_eq!(
+            WebPushParams::new_for_plaintext(&[0; BLOCK_SIZE + 1], 1).pad_length,
+            BLOCK_SIZE - 1
+        );
+
+        assert_eq!(
+            WebPushParams::new_for_plaintext(&[0; 0], 2).pad_length,
+            BLOCK_SIZE
+        );
+        assert_eq!(
+            WebPushParams::new_for_plaintext(&[0; 1], 2).pad_length,
+            BLOCK_SIZE - 1
+        );
+        assert_eq!(
+            WebPushParams::new_for_plaintext(&[0; BLOCK_SIZE - 2], 2).pad_length,
+            2
+        );
+        assert_eq!(
+            WebPushParams::new_for_plaintext(&[0; BLOCK_SIZE - 1], 2).pad_length,
+            BLOCK_SIZE + 1
+        );
+        assert_eq!(
+            WebPushParams::new_for_plaintext(&[0; BLOCK_SIZE], 2).pad_length,
+            BLOCK_SIZE
+        );
+        assert_eq!(
+            WebPushParams::new_for_plaintext(&[0; BLOCK_SIZE + 1], 2).pad_length,
+            BLOCK_SIZE - 1
+        );
+    }
 }

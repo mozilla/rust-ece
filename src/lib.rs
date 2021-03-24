@@ -17,8 +17,8 @@ pub use crate::{
 };
 
 use crate::{
-    aes128gcm::Aes128GcmEceWebPush,
-    common::{get_random_padding_length, WebPushParams, ECE_WEBPUSH_AUTH_SECRET_LENGTH},
+    aes128gcm::{Aes128GcmEceWebPush, ECE_AES128GCM_PAD_SIZE},
+    common::{WebPushParams, ECE_WEBPUSH_AUTH_SECRET_LENGTH},
 };
 
 /// Generate a local ECE key pair and authentication secret.
@@ -45,10 +45,7 @@ pub fn encrypt(remote_pub: &[u8], remote_auth: &[u8], data: &[u8]) -> Result<Vec
     let cryptographer = crypto::holder::get_cryptographer();
     let remote_key = cryptographer.import_public_key(remote_pub)?;
     let local_key_pair = cryptographer.generate_ephemeral_keypair()?;
-    let params = WebPushParams {
-        pad_length: get_random_padding_length(&data, cryptographer)?,
-        ..Default::default()
-    };
+    let params = WebPushParams::new_for_plaintext(data, ECE_AES128GCM_PAD_SIZE);
     Aes128GcmEceWebPush::encrypt_with_keys(
         &*local_key_pair,
         &*remote_key,

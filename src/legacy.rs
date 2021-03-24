@@ -4,8 +4,8 @@
 
 pub use crate::aesgcm::AesGcmEncryptedBlock;
 use crate::{
-    aesgcm::AesGcmEceWebPush,
-    common::{get_random_padding_length, WebPushParams},
+    aesgcm::{AesGcmEceWebPush, ECE_AESGCM_PAD_SIZE},
+    common::WebPushParams,
     crypto::EcKeyComponents,
     error::*,
 };
@@ -28,10 +28,7 @@ pub fn encrypt_aesgcm(
     let cryptographer = crate::crypto::holder::get_cryptographer();
     let remote_key = cryptographer.import_public_key(remote_pub)?;
     let local_key_pair = cryptographer.generate_ephemeral_keypair()?;
-    let params = WebPushParams {
-        pad_length: get_random_padding_length(&data, cryptographer)?,
-        ..Default::default()
-    };
+    let params = WebPushParams::new_for_plaintext(data, ECE_AESGCM_PAD_SIZE);
     AesGcmEceWebPush::encrypt_with_keys(&*local_key_pair, &*remote_key, &remote_auth, data, params)
 }
 

@@ -15,7 +15,7 @@ use crate::{
     error::*,
 };
 
-const ECE_AESGCM_PAD_SIZE: usize = 2;
+pub(crate) const ECE_AESGCM_PAD_SIZE: usize = 2;
 
 const ECE_WEBPUSH_AESGCM_KEYPAIR_LENGTH: usize = 134; // (2 + Raw Key Length) * 2
 const ECE_WEBPUSH_AESGCM_AUTHINFO: &str = "Content-Encoding: auth\0";
