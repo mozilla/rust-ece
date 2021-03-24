@@ -14,7 +14,7 @@ const ECE_AES128GCM_HEADER_LENGTH: usize = 21;
 // The max AES128GCM Key ID Length is 255 octets. We use far less of that because we use
 // the "key_id" to store the exchanged public key since we don't cache the key_ids.
 // Code fails if the key_id is not a public key length field.
-const ECE_AES128GCM_PAD_SIZE: usize = 1;
+pub(crate) const ECE_AES128GCM_PAD_SIZE: usize = 1;
 
 const ECE_WEBPUSH_AES128GCM_IKM_INFO_PREFIX: &str = "WebPush: info\0";
 const ECE_WEBPUSH_AES128GCM_IKM_INFO_LENGTH: usize = 144; // 14 (prefix len) + 65 (pub key len) * 2;
