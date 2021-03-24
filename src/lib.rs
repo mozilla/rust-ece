@@ -18,7 +18,7 @@ pub use crate::{
 
 use crate::{
     aes128gcm::ECE_AES128GCM_PAD_SIZE,
-    common::{WebPushParams, ECE_TAG_LENGTH, ECE_WEBPUSH_AUTH_SECRET_LENGTH},
+    common::{WebPushParams, ECE_WEBPUSH_AUTH_SECRET_LENGTH},
 };
 
 /// Generate a local ECE key pair and authentication secret.
@@ -45,12 +45,7 @@ pub fn encrypt(remote_pub: &[u8], remote_auth: &[u8], data: &[u8]) -> Result<Vec
     let cryptographer = crypto::holder::get_cryptographer();
     let remote_key = cryptographer.import_public_key(remote_pub)?;
     let local_key_pair = cryptographer.generate_ephemeral_keypair()?;
-    let mut params = WebPushParams::new_for_plaintext(data, ECE_AES128GCM_PAD_SIZE);
-    // Expand record size as needed to support larger plaintexts,
-    // until we support chunking into multiple records.
-    if data.len() + params.pad_length + ECE_TAG_LENGTH > params.rs as usize {
-        params.rs = (data.len() + params.pad_length + ECE_TAG_LENGTH) as u32;
-    }
+    let params = WebPushParams::new_for_plaintext(data, ECE_AES128GCM_PAD_SIZE);
     aes128gcm::encrypt(&*local_key_pair, &*remote_key, &remote_auth, data, params)
 }
 
@@ -81,6 +76,7 @@ fn generate_keys() -> Result<(Box<dyn LocalKeyPair>, Box<dyn LocalKeyPair>)> {
 
 #[cfg(all(test, feature = "backend-openssl"))]
 mod aes128gcm_tests {
+    use super::common::ECE_TAG_LENGTH;
     use super::*;
     use hex;
 
@@ -171,6 +167,45 @@ mod aes128gcm_tests {
         )
         .unwrap();
         assert_eq!(decrypted, plaintext.to_vec());
+    }
+
+    #[test]
+    fn test_e2e_with_different_record_sizes_and_padding() {
+        let (local_key, remote_key) = generate_keys().unwrap();
+        let plaintext = b"When I grow up, I want to be a watermelon";
+        let mut auth_secret = vec![0u8; 16];
+        let cryptographer = crypto::holder::get_cryptographer();
+        cryptographer.random_bytes(&mut auth_secret).unwrap();
+        let remote_public = cryptographer
+            .import_public_key(&remote_key.pub_as_raw().unwrap())
+            .unwrap();
+        let plen = plaintext.len();
+        // Try a variety of different record sizes. The numbers here aren't particularly deeply
+        // considered, just a selection of numbers that might be interesting. (Although they did
+        // trigger a bunch of interesting edge-cases during development, which is re-assuring).
+        for plaintext_rs in &[2, 3, 7, 8, plen - 1, plen, plen + 1, 1024, 8192] {
+            let rs = (*plaintext_rs + ECE_TAG_LENGTH) as u32;
+            // Try a variety of padding lengths. Again, not deeply considered numbers.
+            for pad_length in &[0, 1, 2, 8, 37, 127, 128] {
+                let pad_length = *pad_length;
+                let params = WebPushParams {
+                    rs,
+                    pad_length,
+                    ..WebPushParams::default()
+                };
+                let ciphertext = aes128gcm::encrypt(
+                    &*local_key,
+                    &*remote_public,
+                    &auth_secret,
+                    plaintext,
+                    params,
+                )
+                .unwrap();
+                let decrypted =
+                    aes128gcm::decrypt(&*remote_key, &auth_secret, &ciphertext).unwrap();
+                assert_eq!(decrypted, plaintext.to_vec());
+            }
+        }
     }
 
     #[test]
