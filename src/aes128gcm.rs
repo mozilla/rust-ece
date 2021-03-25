@@ -190,9 +190,11 @@ pub(crate) fn decrypt(
 ///
 /// The header is always written at the start of the encrypted data, like so:
 ///
+/// ```txt
 ///    +-----------+--------+-----------+---------------+
 ///    | salt (16) | rs (4) | idlen (1) | keyid (idlen) |
 ///    +-----------+--------+-----------+---------------+
+/// ```
 ///
 /// To avoid copying data when parsing, this struct stores references to its
 /// field, borrowed from the underlying data.
@@ -253,6 +255,7 @@ impl<'a> Header<'a> {
 /// data about a particular record. This diagram from the RFC may help you to
 /// visualize how this data gets encrypted:
 ///
+/// ```txt
 ///   +-----------+             content
 ///   |   data    |             any length up to rs-17 octets
 ///   +-----------+
@@ -266,6 +269,7 @@ impl<'a> Header<'a> {
 ///   +--------------------+    encrypt with AEAD_AES_128_GCM;
 ///   |    ciphertext      |    final size is rs;
 ///   +--------------------+    the last record can be smaller
+/// ```
 ///
 /// To avoid copying data when chunking a plaintext into multiple records, this struct
 /// stores a reference to its portion of the plaintext, borrowed from the underlying data.
@@ -296,30 +300,32 @@ impl<'a> PlaintextRecord<'a> {
         sequence_number: usize,
         ciphertext: &[u8],
         plaintext_buffer: &'a mut [u8],
-    ) -> Result<PlaintextRecord<'a>> {
+    ) -> Result<Self> {
         if ciphertext.len() <= ECE_TAG_LENGTH {
             return Err(Error::BlockTooShort);
         }
         let iv = generate_iv_for_record(&nonce, sequence_number);
+        // It would be nice if we could decrypt directly into `plaintext_buffer` here,
+        // but that will require some refactoring in the crypto backend.
         let padded_plaintext = cryptographer.aes_gcm_128_decrypt(&key, &iv, &ciphertext)?;
         // Scan backwards for the first non-zero byte from the end of the data, which delimits the padding.
-        let last_nonzero_byte = match padded_plaintext.iter().rposition(|&b| b != 0u8) {
-            None => return Err(Error::DecryptPadding),
-            Some(pos) => pos,
-        };
-        // Everything before the padding delimiter is the plaintext.
-        plaintext_buffer[0..last_nonzero_byte]
-            .copy_from_slice(&padded_plaintext[0..last_nonzero_byte]);
+        let padding_delimiter_idx = padded_plaintext
+            .iter()
+            .rposition(|&b| b != 0u8)
+            .ok_or(Error::DecryptPadding)?;
         // The padding delimiter tells is whether this is the final record.
-        let is_final = match padded_plaintext[last_nonzero_byte] {
+        let is_final = match padded_plaintext[padding_delimiter_idx] {
             1 => false,
             2 => true,
             _ => return Err(Error::DecryptPadding),
         };
+        // Everything before the padding delimiter is the plaintext.
+        plaintext_buffer[0..padding_delimiter_idx]
+            .copy_from_slice(&padded_plaintext[0..padding_delimiter_idx]);
         // That's it!
         Ok(PlaintextRecord {
-            plaintext: &plaintext_buffer[0..last_nonzero_byte],
-            padding: padded_plaintext.len() - last_nonzero_byte,
+            plaintext: &plaintext_buffer[0..padding_delimiter_idx],
+            padding: padded_plaintext.len() - padding_delimiter_idx,
             sequence_number,
             is_final,
         })
