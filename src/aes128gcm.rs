@@ -153,6 +153,7 @@ pub(crate) fn decrypt(
     // We'll re-use this buffer as scratch space for decrypting each record.
     // This is nice for memory usage, but actually the main motivation is to have the decryption
     // output a `PlaintextRecord` struct, which holds a borrowed slice of plaintext.
+    // TODO: pre-allocate the final output buffer, and let `decrypt_from` write directly into it.
     let mut plaintext_buffer = vec![0u8; (header.rs as usize) - ECE_TAG_LENGTH];
 
     let records = ciphertext[header.encoded_size()..].chunks(header.rs as usize);
