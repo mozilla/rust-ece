@@ -17,8 +17,8 @@ pub use crate::{
 };
 
 use crate::{
-    aes128gcm::{Aes128GcmEceWebPush, ECE_AES128GCM_PAD_SIZE},
-    common::{WebPushParams, ECE_WEBPUSH_AUTH_SECRET_LENGTH},
+    aes128gcm::ECE_AES128GCM_PAD_SIZE,
+    common::{WebPushParams, ECE_TAG_LENGTH, ECE_WEBPUSH_AUTH_SECRET_LENGTH},
 };
 
 /// Generate a local ECE key pair and authentication secret.
@@ -45,14 +45,13 @@ pub fn encrypt(remote_pub: &[u8], remote_auth: &[u8], data: &[u8]) -> Result<Vec
     let cryptographer = crypto::holder::get_cryptographer();
     let remote_key = cryptographer.import_public_key(remote_pub)?;
     let local_key_pair = cryptographer.generate_ephemeral_keypair()?;
-    let params = WebPushParams::new_for_plaintext(data, ECE_AES128GCM_PAD_SIZE);
-    Aes128GcmEceWebPush::encrypt_with_keys(
-        &*local_key_pair,
-        &*remote_key,
-        &remote_auth,
-        data,
-        params,
-    )
+    let mut params = WebPushParams::new_for_plaintext(data, ECE_AES128GCM_PAD_SIZE);
+    // Expand record size as needed to support larger plaintexts,
+    // until we support chunking into multiple records.
+    if data.len() + params.pad_length + ECE_TAG_LENGTH > params.rs as usize {
+        params.rs = (data.len() + params.pad_length + ECE_TAG_LENGTH) as u32;
+    }
+    aes128gcm::encrypt(&*local_key_pair, &*remote_key, &remote_auth, data, params)
 }
 
 /// Decrypt a block using the AES128GCM encryption scheme.
@@ -67,7 +66,7 @@ pub fn encrypt(remote_pub: &[u8], remote_auth: &[u8], data: &[u8]) -> Result<Vec
 pub fn decrypt(components: &EcKeyComponents, auth: &[u8], data: &[u8]) -> Result<Vec<u8>> {
     let cryptographer = crypto::holder::get_cryptographer();
     let priv_key = cryptographer.import_key_pair(components).unwrap();
-    Aes128GcmEceWebPush::decrypt(&*priv_key, &auth, data)
+    aes128gcm::decrypt(&*priv_key, &auth, data)
 }
 
 /// Generate a pair of keys; useful for writing tests.
@@ -111,7 +110,7 @@ mod aes128gcm_tests {
             pad_length,
             salt,
         };
-        let ciphertext = Aes128GcmEceWebPush::encrypt_with_keys(
+        let ciphertext = aes128gcm::encrypt(
             &*local_key_pair,
             &*remote_pub_key,
             &auth_secret,
@@ -145,26 +144,32 @@ mod aes128gcm_tests {
     }
 
     #[test]
-    fn test_e2e() {
-        let (local_key, remote_key) = generate_keys().unwrap();
+    fn test_e2e_through_public_api() {
+        let (remote_key, auth_secret) = generate_keypair_and_auth_secret().unwrap();
         let plaintext = b"When I grow up, I want to be a watermelon";
-        let mut auth_secret = vec![0u8; 16];
-        let cryptographer = crypto::holder::get_cryptographer();
-        cryptographer.random_bytes(&mut auth_secret).unwrap();
-        let remote_public = cryptographer
-            .import_public_key(&remote_key.pub_as_raw().unwrap())
-            .unwrap();
-        let params = WebPushParams::default();
-        let ciphertext = Aes128GcmEceWebPush::encrypt_with_keys(
-            &*local_key,
-            &*remote_public,
+        let ciphertext =
+            encrypt(&remote_key.pub_as_raw().unwrap(), &auth_secret, plaintext).unwrap();
+        let decrypted = decrypt(
+            &remote_key.raw_components().unwrap(),
             &auth_secret,
-            plaintext,
-            params,
+            &ciphertext,
         )
         .unwrap();
-        let decrypted =
-            Aes128GcmEceWebPush::decrypt(&*remote_key, &auth_secret, &ciphertext).unwrap();
+        assert_eq!(decrypted, plaintext.to_vec());
+    }
+
+    #[test]
+    fn test_e2e_large_plaintext() {
+        let (remote_key, auth_secret) = generate_keypair_and_auth_secret().unwrap();
+        let plaintext = [0; 5000];
+        let ciphertext =
+            encrypt(&remote_key.pub_as_raw().unwrap(), &auth_secret, &plaintext).unwrap();
+        let decrypted = decrypt(
+            &remote_key.raw_components().unwrap(),
+            &auth_secret,
+            &ciphertext,
+        )
+        .unwrap();
         assert_eq!(decrypted, plaintext.to_vec());
     }
 
@@ -226,7 +231,7 @@ mod aes128gcm_tests {
         .unwrap_err();
         match err {
             Error::HeaderTooShort => {}
-            _ => unreachable!(),
+            _ => panic!("Unexpected error {:?}", err),
         };
     }
 
@@ -241,7 +246,7 @@ mod aes128gcm_tests {
         .unwrap_err();
         match err {
             Error::InvalidKeyLength => {}
-            _ => unreachable!(),
+            _ => panic!("Unexpected error {:?}", err),
         };
     }
 
@@ -255,7 +260,7 @@ mod aes128gcm_tests {
         ).unwrap_err();
         match err {
             Error::OpenSSLError(_) => {}
-            _ => panic!("{:?}", err), //unreachable!(),
+            _ => panic!("Unexpected error {:?}", err),
         };
     }
 
@@ -269,7 +274,7 @@ mod aes128gcm_tests {
         ).unwrap_err();
         match err {
             Error::DecryptPadding => {}
-            _ => panic!("{:?}", err), //unreachable!(),
+            _ => panic!("Unexpected error {:?}", err),
         };
     }
 }
