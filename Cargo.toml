@@ -1,6 +1,6 @@
 [package]
 name = "ece"
-version = "2.0.0"
+version = "2.1.0"
 authors = ["Firefox Sync Team <sync-team@mozilla.com>", "JR Conlin <jrconlin@gmail.com>"]
 license = "MPL-2.0"
 edition = "2018"
