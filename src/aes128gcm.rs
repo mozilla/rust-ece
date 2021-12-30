@@ -57,7 +57,7 @@ pub(crate) fn encrypt(
     let salt = params.take_or_generate_salt(cryptographer)?;
     let (key, nonce) = derive_key_and_nonce(
         cryptographer,
-        EceMode::ENCRYPT,
+        EceMode::Encrypt,
         local_prv_key,
         remote_pub_key,
         auth_secret,
@@ -116,11 +116,11 @@ pub(crate) fn decrypt(
     if header.keyid.len() != ECE_WEBPUSH_PUBLIC_KEY_LENGTH {
         return Err(Error::InvalidKeyLength);
     }
-    let remote_pub_key = cryptographer.import_public_key(&header.keyid)?;
+    let remote_pub_key = cryptographer.import_public_key(header.keyid)?;
 
     let (key, nonce) = derive_key_and_nonce(
         cryptographer,
-        EceMode::DECRYPT,
+        EceMode::Decrypt,
         local_prv_key,
         &*remote_pub_key,
         auth_secret,
@@ -285,10 +285,10 @@ impl<'a> PlaintextRecord<'a> {
         if ciphertext.len() <= ECE_TAG_LENGTH {
             return Err(Error::BlockTooShort);
         }
-        let iv = generate_iv_for_record(&nonce, sequence_number);
+        let iv = generate_iv_for_record(nonce, sequence_number);
         // It would be nice if we could decrypt directly into `plaintext_buffer` here,
         // but that will require some refactoring in the crypto backend.
-        let padded_plaintext = cryptographer.aes_gcm_128_decrypt(&key, &iv, &ciphertext)?;
+        let padded_plaintext = cryptographer.aes_gcm_128_decrypt(key, &iv, ciphertext)?;
         // Scan backwards for the first non-zero byte from the end of the data, which delimits the padding.
         let padding_delimiter_idx = padded_plaintext
             .iter()
@@ -339,9 +339,9 @@ impl<'a> PlaintextRecord<'a> {
         // And the rest of the padding is all zeroes.
         output[self.plaintext.len() + 1..padded_plaintext_len].fill(0);
         // Now we can encrypt!
-        let iv = generate_iv_for_record(&nonce, self.sequence_number);
+        let iv = generate_iv_for_record(nonce, self.sequence_number);
         let ciphertext =
-            cryptographer.aes_gcm_128_encrypt(&key, &iv, &output[0..padded_plaintext_len])?;
+            cryptographer.aes_gcm_128_encrypt(key, &iv, &output[0..padded_plaintext_len])?;
         output[0..ciphertext.len()].copy_from_slice(&ciphertext);
         Ok(ciphertext.len())
     }
@@ -540,8 +540,8 @@ fn derive_key_and_nonce(
     // The "aes128gcm" scheme includes the sender and receiver public keys in
     // the info string when deriving the Web Push IKM.
     let ikm_info = match ece_mode {
-        EceMode::ENCRYPT => generate_info(&raw_remote_pub_key, &raw_local_pub_key),
-        EceMode::DECRYPT => generate_info(&raw_local_pub_key, &raw_remote_pub_key),
+        EceMode::Encrypt => generate_info(&raw_remote_pub_key, &raw_local_pub_key),
+        EceMode::Decrypt => generate_info(&raw_local_pub_key, &raw_remote_pub_key),
     }?;
     let ikm = cryptographer.hkdf_sha256(
         auth_secret,

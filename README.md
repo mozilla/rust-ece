@@ -36,7 +36,7 @@ from [earlier drafts](https://tools.ietf.org/html/draft-thomson-http-encryption-
 To receive messages via WebPush, the receiver must generate an EC keypair and a symmetric authentication secret,
 then distribute the public key and authentication secret to the sender:
 
-```
+```rust
 let (keypair, auth_secret) = ece::generate_keypair_and_auth_secret()?;
 let pubkey = keypair.pub_as_raw();
 // Base64-encode the `pubkey` and `auth_secret` bytes and distribute them to the sender.
@@ -44,13 +44,13 @@ let pubkey = keypair.pub_as_raw();
 
 The sender can encrypt a Web Push message to the receiver's public key:
 
-```
+```rust
 let ciphertext = ece::encrypt(&pubkey, &auth_secret, b"payload")?;
 ```
 
 And the receiver can decrypt it using their private key:
 
-```
+```rust
 let plaintext = ece::decrypt(&keypair, &auth_secret, &ciphertext)?;
 ```
 
@@ -63,7 +63,7 @@ The legacy `aesgcm` scheme is more complicated, because it communicates some enc
 rather than as part of the encrypted payload.  When used for encryption, the sender must deal with `Encryption` and
 `Crypto-Key` headers in addition to the ciphertext:
 
-```
+```rust
 let encrypted_block = ece::legacy::encrypt_aesgcm(pubkey, auth_secret, b"payload")?;
 for (header, &value) in encrypted_block.headers().iter() {
   // Set header to corresponding value
@@ -74,7 +74,7 @@ for (header, &value) in encrypted_block.headers().iter() {
 When receiving an `aesgcm` message, the receiver needs to parse encryption parameters from the `Encryption`
 and `Crypto-Key` fields:
 
-```
+```rust
 // Parse `rs`, `salt` and `dh` from the `Encryption` and `Crypto-Key` headers.
 // You'll need to consult the spec for how to do this; we might add some helpers one day.
 let encrypted_block = ece::AesGcmEncryptedBlock::new(dh, rs, salt, ciphertext);
