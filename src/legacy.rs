@@ -24,7 +24,7 @@ pub fn encrypt_aesgcm(
     let remote_key = cryptographer.import_public_key(remote_pub)?;
     let local_key_pair = cryptographer.generate_ephemeral_keypair()?;
     let params = WebPushParams::new_for_plaintext(data, aesgcm::ECE_AESGCM_PAD_SIZE);
-    aesgcm::encrypt(&*local_key_pair, &*remote_key, &remote_auth, data, params)
+    aesgcm::encrypt(&*local_key_pair, &*remote_key, remote_auth, data, params)
 }
 
 /// Decrypt a block using legacy AESGCM encoding.
@@ -44,7 +44,7 @@ pub fn decrypt_aesgcm(
 ) -> Result<Vec<u8>> {
     let cryptographer = crate::crypto::holder::get_cryptographer();
     let priv_key = cryptographer.import_key_pair(components).unwrap();
-    aesgcm::decrypt(&*priv_key, &auth, data)
+    aesgcm::decrypt(&*priv_key, auth, data)
 }
 
 #[cfg(all(test, feature = "backend-openssl"))]
@@ -91,7 +91,7 @@ mod aesgcm_tests {
             &*local_key_pair,
             &*remote_pub_key,
             &auth_secret,
-            &plaintext,
+            plaintext,
             params,
         )?;
         Ok(AesGcmTestPayload {
@@ -209,7 +209,7 @@ mod aesgcm_tests {
         let pub_key_raw = base64::decode_config(pub_key, base64::URL_SAFE_NO_PAD)?;
         let ec_key = EcKeyComponents::new(priv_key_raw, pub_key_raw);
         let auth_secret = base64::decode_config(auth_secret, base64::URL_SAFE_NO_PAD)?;
-        let plaintext = decrypt_aesgcm(&ec_key, &auth_secret, &block)?;
+        let plaintext = decrypt_aesgcm(&ec_key, &auth_secret, block)?;
         Ok(String::from_utf8(plaintext).unwrap())
     }
 

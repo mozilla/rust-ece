@@ -94,8 +94,8 @@ impl WebPushParams {
 /// Used when deriving keys.
 ///
 pub(crate) enum EceMode {
-    ENCRYPT,
-    DECRYPT,
+    Encrypt,
+    Decrypt,
 }
 
 /// Convenience tuple for "key" and "nonce" pair.

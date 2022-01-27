@@ -46,7 +46,7 @@ pub fn encrypt(remote_pub: &[u8], remote_auth: &[u8], data: &[u8]) -> Result<Vec
     let remote_key = cryptographer.import_public_key(remote_pub)?;
     let local_key_pair = cryptographer.generate_ephemeral_keypair()?;
     let params = WebPushParams::new_for_plaintext(data, ECE_AES128GCM_PAD_SIZE);
-    aes128gcm::encrypt(&*local_key_pair, &*remote_key, &remote_auth, data, params)
+    aes128gcm::encrypt(&*local_key_pair, &*remote_key, remote_auth, data, params)
 }
 
 /// Decrypt a block using the AES128GCM encryption scheme.
@@ -61,7 +61,7 @@ pub fn encrypt(remote_pub: &[u8], remote_auth: &[u8], data: &[u8]) -> Result<Vec
 pub fn decrypt(components: &EcKeyComponents, auth: &[u8], data: &[u8]) -> Result<Vec<u8>> {
     let cryptographer = crypto::holder::get_cryptographer();
     let priv_key = cryptographer.import_key_pair(components).unwrap();
-    aes128gcm::decrypt(&*priv_key, &auth, data)
+    aes128gcm::decrypt(&*priv_key, auth, data)
 }
 
 /// Generate a pair of keys; useful for writing tests.
@@ -78,7 +78,6 @@ fn generate_keys() -> Result<(Box<dyn LocalKeyPair>, Box<dyn LocalKeyPair>)> {
 mod aes128gcm_tests {
     use super::common::ECE_TAG_LENGTH;
     use super::*;
-    use hex;
 
     #[allow(clippy::too_many_arguments)]
     fn try_encrypt(
@@ -110,7 +109,7 @@ mod aes128gcm_tests {
             &*local_key_pair,
             &*remote_pub_key,
             &auth_secret,
-            &plaintext,
+            plaintext,
             params,
         )?;
         Ok(hex::encode(ciphertext))
