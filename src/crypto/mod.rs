@@ -30,7 +30,7 @@ pub trait LocalKeyPair: Send + Sync + 'static {
     fn as_any(&self) -> &dyn Any;
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 #[cfg_attr(
     feature = "serializable-keys",
     derive(serde::Serialize, serde::Deserialize)
@@ -45,7 +45,7 @@ impl Default for EcCurve {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 #[cfg_attr(
     feature = "serializable-keys",
     derive(serde::Serialize, serde::Deserialize)
