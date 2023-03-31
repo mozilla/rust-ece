@@ -75,12 +75,12 @@ impl AesGcmEncryptedBlock {
     pub fn headers(&self, vapid_public_key: Option<&[u8]>) -> Vec<(&'static str, String)> {
         let mut result = Vec::new();
         let mut rs = "".to_owned();
-        let dh = base64::encode_config(&self.dh, base64::URL_SAFE_NO_PAD);
+        let dh = crate::common::b64_encode_url(&self.dh);
         let crypto_key = match vapid_public_key {
             Some(public_key) => format!(
                 "dh={}; p256ecdsa={}",
                 dh,
-                base64::encode_config(public_key, base64::URL_SAFE_NO_PAD)
+                crate::common::b64_encode_url(&public_key.to_vec())
             ),
             None => format!("dh={}", dh),
         };
@@ -90,18 +90,14 @@ impl AesGcmEncryptedBlock {
         }
         result.push((
             "Encryption",
-            format!(
-                "salt={}{}",
-                base64::encode_config(&self.salt, base64::URL_SAFE_NO_PAD),
-                rs
-            ),
+            format!("salt={}{}", crate::common::b64_encode_url(&self.salt), rs),
         ));
         result
     }
 
     /// Encode the body as a String.
     pub fn body(&self) -> String {
-        base64::encode_config(&self.ciphertext, base64::URL_SAFE_NO_PAD)
+        crate::common::b64_encode_url(&self.ciphertext)
     }
 }
 

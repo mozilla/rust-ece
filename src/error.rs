@@ -48,6 +48,9 @@ pub enum Error {
     #[error("Could not decode base64 entry")]
     DecodeError(#[from] base64::DecodeError),
 
+    #[error("Invalid URL string")]
+    Utf8Error(#[from] std::string::FromUtf8Error),
+
     #[error("Crypto backend error")]
     CryptoError,
 

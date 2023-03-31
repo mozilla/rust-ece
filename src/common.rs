@@ -8,6 +8,7 @@
 //! of an ECE encryption scheme by implementing the `EncryptionScheme` trait.
 
 use crate::{crypto::Cryptographer, error::*};
+use base64::Engine;
 use byteorder::{BigEndian, ByteOrder};
 
 pub(crate) const ECE_AES_KEY_LENGTH: usize = 16;
@@ -117,6 +118,18 @@ pub(crate) fn generate_iv_for_record(nonce: &[u8], counter: usize) -> [u8; ECE_N
     let mask = BigEndian::read_u64(&nonce[offset..]);
     BigEndian::write_u64(&mut iv[offset..], mask ^ (counter as u64));
     iv
+}
+
+/// base64 had a habit of changing this a fair bit, so isolating these functions
+/// to reduce future code changes.
+///
+#[cfg(test)]
+pub(crate) fn b64_decode_url(input: &str) -> std::result::Result<Vec<u8>, base64::DecodeError> {
+    base64::engine::general_purpose::URL_SAFE_NO_PAD.decode(input.trim_end_matches('='))
+}
+
+pub(crate) fn b64_encode_url(input: &Vec<u8>) -> String {
+    base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(input)
 }
 
 #[cfg(test)]

@@ -11,7 +11,7 @@ keywords = ["http-ece", "web-push"]
 [dependencies]
 byteorder = "1.3"
 thiserror = "1.0"
-base64 = "0.13"
+base64 = "0.21"
 hex = "0.4"
 hkdf = { version = "0.12", optional = true }
 lazy_static = { version = "1.4", optional = true }

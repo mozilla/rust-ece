@@ -64,7 +64,7 @@ impl fmt::Debug for OpenSSLLocalKeyPair {
         write!(
             f,
             "{:?}",
-            base64::encode_config(&self.ec_key.private_key().to_vec(), base64::URL_SAFE)
+            crate::common::b64_encode_url(&self.ec_key.private_key().to_vec())
         )
     }
 }
