@@ -35,14 +35,10 @@ pub trait LocalKeyPair: Send + Sync + 'static {
     feature = "serializable-keys",
     derive(serde::Serialize, serde::Deserialize)
 )]
+#[derive(Default)]
 pub enum EcCurve {
+    #[default]
     P256,
-}
-
-impl Default for EcCurve {
-    fn default() -> Self {
-        EcCurve::P256
-    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

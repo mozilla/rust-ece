@@ -21,6 +21,7 @@ use crate::{
     crypto::{self, Cryptographer, LocalKeyPair, RemotePublicKey},
     error::*,
 };
+use base64::Engine;
 use byteorder::{BigEndian, ByteOrder};
 
 pub(crate) const ECE_AESGCM_PAD_SIZE: usize = 2;
@@ -75,12 +76,12 @@ impl AesGcmEncryptedBlock {
     pub fn headers(&self, vapid_public_key: Option<&[u8]>) -> Vec<(&'static str, String)> {
         let mut result = Vec::new();
         let mut rs = "".to_owned();
-        let dh = base64::encode_config(&self.dh, base64::URL_SAFE_NO_PAD);
+        let dh = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(&self.dh);
         let crypto_key = match vapid_public_key {
             Some(public_key) => format!(
                 "dh={}; p256ecdsa={}",
                 dh,
-                base64::encode_config(public_key, base64::URL_SAFE_NO_PAD)
+                base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(public_key)
             ),
             None => format!("dh={}", dh),
         };
@@ -92,7 +93,7 @@ impl AesGcmEncryptedBlock {
             "Encryption",
             format!(
                 "salt={}{}",
-                base64::encode_config(&self.salt, base64::URL_SAFE_NO_PAD),
+                base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(&self.salt),
                 rs
             ),
         ));
@@ -101,7 +102,7 @@ impl AesGcmEncryptedBlock {
 
     /// Encode the body as a String.
     pub fn body(&self) -> String {
-        base64::encode_config(&self.ciphertext, base64::URL_SAFE_NO_PAD)
+        base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(&self.ciphertext)
     }
 }
 
