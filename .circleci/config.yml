@@ -30,6 +30,10 @@ jobs:
   Check Rust formatting:
     docker:
       - image: circleci/rust:latest
+        auth:
+          username: $DOCKER_USER
+          password: $DOCKER_PASS
+
     steps:
       - checkout
       - run: rustup component add rustfmt
@@ -38,11 +42,18 @@ jobs:
   Rust tests - stable:
     docker:
       - image: circleci/rust:latest
+        auth:
+          username: $DOCKER_USER
+          password: $DOCKER_PASS
+
     steps:
       - rust-tests
   Rust tests - beta:
     docker:
       - image: circleci/rust:latest
+        auth:
+          username: $DOCKER_USER
+          password: $DOCKER_PASS
     steps:
       - rust-tests:
           rust-version: "beta"

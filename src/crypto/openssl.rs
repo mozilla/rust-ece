@@ -6,6 +6,7 @@ use crate::{
     crypto::{Cryptographer, EcKeyComponents, LocalKeyPair, RemotePublicKey},
     error::*,
 };
+use base64::Engine;
 use hkdf::Hkdf;
 use lazy_static::lazy_static;
 use openssl::{
@@ -64,7 +65,7 @@ impl fmt::Debug for OpenSSLLocalKeyPair {
         write!(
             f,
             "{:?}",
-            base64::encode_config(&self.ec_key.private_key().to_vec(), base64::URL_SAFE)
+            base64::engine::general_purpose::URL_SAFE.encode(self.ec_key.private_key().to_vec())
         )
     }
 }

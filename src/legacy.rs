@@ -50,7 +50,7 @@ pub fn decrypt_aesgcm(
 #[cfg(all(test, feature = "backend-openssl"))]
 mod aesgcm_tests {
     use super::*;
-    use base64;
+    use base64::Engine;
     use hex;
 
     #[derive(Debug)]
@@ -205,16 +205,18 @@ mod aesgcm_tests {
         // The AesGcmEncryptedBlock is composed from the `Crypto-Key` & `Encryption` headers, and post body
         // The Block will attempt to decode the base64 strings for dh & salt, so no additional action needed.
         // Since the body is most likely not encoded, it is expected to be a raw buffer of [u8]
-        let priv_key_raw = base64::decode_config(priv_key, base64::URL_SAFE_NO_PAD)?;
-        let pub_key_raw = base64::decode_config(pub_key, base64::URL_SAFE_NO_PAD)?;
+        let priv_key_raw = base64::engine::general_purpose::URL_SAFE_NO_PAD.decode(priv_key)?;
+        let pub_key_raw = base64::engine::general_purpose::URL_SAFE_NO_PAD.decode(pub_key)?;
         let ec_key = EcKeyComponents::new(priv_key_raw, pub_key_raw);
-        let auth_secret = base64::decode_config(auth_secret, base64::URL_SAFE_NO_PAD)?;
+        let auth_secret = base64::engine::general_purpose::URL_SAFE_NO_PAD.decode(auth_secret)?;
         let plaintext = decrypt_aesgcm(&ec_key, &auth_secret, block)?;
         Ok(String::from_utf8(plaintext).unwrap())
     }
 
     #[test]
     fn test_decode() {
+        use base64::Engine;
+
         // generated the content using pywebpush, which verified against the client.
         let auth_raw = "LsuUOBKVQRY6-l7_Ajo-Ag";
         let priv_key_raw = "yerDmA9uNFoaUnSt2TkWWLwPseG1qtzS2zdjUl8Z7tc";
@@ -225,13 +227,16 @@ mod aesgcm_tests {
         // Incoming Encryption: salt=
         let salt = "8qX1ZgkLD50LHgocZdPKZQ";
         // Incoming Body (this is normally raw bytes. It's encoded here for presentation)
-        let ciphertext = base64::decode_config("8Vyes671P_VDf3G2e6MgY6IaaydgR-vODZZ7L0ZHbpCJNVaf_2omEms2tiPJiU22L3BoECKJixiOxihcsxWMjTgAcplbvfu1g6LWeP4j8dMAzJionWs7OOLif6jBKN6LGm4EUw9e26EBv9hNhi87-HaEGbfBMGcLvm1bql1F",
-            base64::URL_SAFE_NO_PAD).unwrap();
+        let ciphertext = base64::engine::general_purpose::URL_SAFE_NO_PAD.decode("8Vyes671P_VDf3G2e6MgY6IaaydgR-vODZZ7L0ZHbpCJNVaf_2omEms2tiPJiU22L3BoECKJixiOxihcsxWMjTgAcplbvfu1g6LWeP4j8dMAzJionWs7OOLif6jBKN6LGm4EUw9e26EBv9hNhi87-HaEGbfBMGcLvm1bql1F").unwrap();
         let plaintext = "Amidst the mists and coldest frosts I thrust my fists against the\nposts and still demand to see the ghosts.\n";
 
         let block = AesGcmEncryptedBlock::new(
-            &base64::decode_config(dh, base64::URL_SAFE_NO_PAD).unwrap(),
-            &base64::decode_config(salt, base64::URL_SAFE_NO_PAD).unwrap(),
+            &base64::engine::general_purpose::URL_SAFE_NO_PAD
+                .decode(dh)
+                .unwrap(),
+            &base64::engine::general_purpose::URL_SAFE_NO_PAD
+                .decode(salt)
+                .unwrap(),
             4096,
             ciphertext,
         )
@@ -244,6 +249,8 @@ mod aesgcm_tests {
 
     #[test]
     fn test_decode_padding() {
+        use base64::Engine;
+
         // generated the content using pywebpush, which verified against the client.
         let auth_raw = "LsuUOBKVQRY6-l7_Ajo-Ag";
         let priv_key_raw = "yerDmA9uNFoaUnSt2TkWWLwPseG1qtzS2zdjUl8Z7tc";
@@ -254,13 +261,16 @@ mod aesgcm_tests {
         // Incoming Encryption-Key: salt=
         let salt = "x2I2OZpSCoe-Cc5UW36Nng";
         // Incoming Body (this is normally raw bytes. It's encoded here for presentation)
-        let ciphertext = base64::decode_config("Ua3-WW5kTbt11dBTiXBP6_hLBYhBNOtDFfue5QHMTd2DicL0wutDnt5z9pjRJ76w562egPq5qro95YLnsX0NWGmDQbsQ0Azds6jcBGsxHPt0p5GELAtR4AJj2OsB_LV7dTuGHN2SqsyXLARjTFN2wsF3xWhmuw",
-            base64::URL_SAFE_NO_PAD).unwrap();
+        let ciphertext = base64::engine::general_purpose::URL_SAFE_NO_PAD.decode("Ua3-WW5kTbt11dBTiXBP6_hLBYhBNOtDFfue5QHMTd2DicL0wutDnt5z9pjRJ76w562egPq5qro95YLnsX0NWGmDQbsQ0Azds6jcBGsxHPt0p5GELAtR4AJj2OsB_LV7dTuGHN2SqsyXLARjTFN2wsF3xWhmuw").unwrap();
         let plaintext = "Tabs are the real indent";
 
         let block = AesGcmEncryptedBlock::new(
-            &base64::decode_config(dh, base64::URL_SAFE_NO_PAD).unwrap(),
-            &base64::decode_config(salt, base64::URL_SAFE_NO_PAD).unwrap(),
+            &base64::engine::general_purpose::URL_SAFE_NO_PAD
+                .decode(dh)
+                .unwrap(),
+            &base64::engine::general_purpose::URL_SAFE_NO_PAD
+                .decode(salt)
+                .unwrap(),
             4096,
             ciphertext,
         )
