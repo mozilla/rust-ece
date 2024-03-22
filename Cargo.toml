@@ -1,7 +1,10 @@
 [package]
 name = "ece"
 version = "2.3.1"
-authors = ["Firefox Sync Team <sync-team@mozilla.com>", "JR Conlin <src+git@jrconlin.com>"]
+authors = [
+    "Firefox Sync Team <sync-team@mozilla.com>",
+    "JR Conlin <src+git@jrconlin.com>",
+]
 license = "MPL-2.0"
 edition = "2021"
 repository = "https://github.com/mozilla/rust-ece"
@@ -11,7 +14,7 @@ keywords = ["http-ece", "web-push"]
 [dependencies]
 byteorder = "1.3"
 thiserror = "1.0"
-base64 = "0.21"
+base64 = "0.22"
 hex = "0.4"
 hkdf = { version = "0.12", optional = true }
 lazy_static = { version = "1.4", optional = true }
