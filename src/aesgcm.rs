@@ -48,7 +48,7 @@ pub struct AesGcmEncryptedBlock {
 
 impl AesGcmEncryptedBlock {
     fn aesgcm_rs(rs: u32) -> u32 {
-        if rs > u32::max_value() - ECE_TAG_LENGTH as u32 {
+        if rs > u32::MAX - ECE_TAG_LENGTH as u32 {
             return 0;
         }
         rs + ECE_TAG_LENGTH as u32
