@@ -439,7 +439,7 @@ struct PlaintextRecordIterator<'a> {
     sequence_number: usize,
 }
 
-impl<'a> PlaintextRecordIterator<'a> {
+impl PlaintextRecordIterator<'_> {
     pub(crate) fn total_ciphertext_size(&self) -> usize {
         self.total_size + self.num_records * ECE_TAG_LENGTH
     }
