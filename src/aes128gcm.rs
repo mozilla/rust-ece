@@ -378,7 +378,7 @@ fn split_into_records(
     // Ensure we have enough padding to give at least one byte of it to each record.
     // This is the only reason why we might expand the padding beyond what was requested.
     let mut min_num_records = plaintext.len() / (rs - 1);
-    if plaintext.len() % (rs - 1) != 0 {
+    if !plaintext.len().is_multiple_of(rs - 1) {
         min_num_records += 1;
     }
     let pad_length = std::cmp::max(pad_length, min_num_records);
@@ -482,7 +482,7 @@ impl<'a> Iterator for PlaintextRecordIterator<'a> {
                 // The extra plaintext must be distributed as evenly as possible
                 // amongst all but the final record.
                 let mut extra_share = self.extra_plaintext / (records_remaining - 1);
-                if self.extra_plaintext % (records_remaining - 1) != 0 {
+                if !self.extra_plaintext.is_multiple_of(records_remaining - 1) {
                     extra_share += 1;
                 }
                 plaintext_share += extra_share;
