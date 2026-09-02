@@ -195,13 +195,15 @@ pub(crate) fn decrypt(
         block.salt.as_ref(),
     )?;
 
+    // Check block.ciphertext.len() before the check below.  This ensures that
+    // `block.ciphertext.len() - ECE_TAG_LENGTH` can never underflow.
+    if block.ciphertext.len() <= ECE_TAG_LENGTH + ECE_AESGCM_PAD_SIZE {
+        return Err(Error::BlockTooShort);
+    }
     // We only support receipt of a single record for this legacy scheme.
     // Recall that the final block must be strictly less than `rs` in size.
     if block.ciphertext.len() - ECE_TAG_LENGTH >= block.rs as usize {
         return Err(Error::MultipleRecordsNotSupported);
-    }
-    if block.ciphertext.len() <= ECE_TAG_LENGTH + ECE_AESGCM_PAD_SIZE {
-        return Err(Error::BlockTooShort);
     }
 
     let iv = generate_iv_for_record(&nonce, 0);
