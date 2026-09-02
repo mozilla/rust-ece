@@ -18,6 +18,10 @@ use byteorder::{BigEndian, ByteOrder};
 // Each record has a 16 byte authentication tag and 1 padding delimiter byte.
 // Thus, a record size of less than 18 could never store any plaintext.
 const ECE_AES128GCM_MIN_RS: u32 = 18;
+// Don't allow `rs` to exceed 1MB.  Otherwise the sender could cause huge allocations and
+// potentially crash the system.
+// https://bugzilla.mozilla.org/show_bug.cgi?id=2066094
+const ECE_AES128GCM_MAX_RS: u32 = 1_000_000;
 const ECE_AES128GCM_HEADER_LENGTH: usize = 21;
 pub(crate) const ECE_AES128GCM_PAD_SIZE: usize = 1;
 
@@ -198,7 +202,7 @@ impl<'a> Header<'a> {
 
         let salt = &input[0..ECE_SALT_LENGTH];
         let rs = BigEndian::read_u32(&input[ECE_SALT_LENGTH..]);
-        if rs < ECE_AES128GCM_MIN_RS {
+        if rs < ECE_AES128GCM_MIN_RS || rs > ECE_AES128GCM_MAX_RS {
             return Err(Error::InvalidRecordSize);
         }
         let keyid = &input[ECE_AES128GCM_HEADER_LENGTH..ECE_AES128GCM_HEADER_LENGTH + keyid_len];
