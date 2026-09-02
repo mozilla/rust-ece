@@ -1,6 +1,6 @@
 [package]
 name = "ece"
-version = "2.4.1"
+version = "2.4.2"
 authors = [
     "Firefox Sync Team <sync-team@mozilla.com>",
     "JR Conlin <src+git@jrconlin.com>",
