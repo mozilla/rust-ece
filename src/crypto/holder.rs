@@ -15,7 +15,7 @@ pub struct SetCryptographerError(());
 ///
 /// This is a convenience wrapper over [`set_cryptographer`],
 /// but takes a `Box<dyn Cryptographer>` instead.
-#[cfg(not(feature = "backend-openssl"))]
+#[cfg(not(any(feature = "backend-openssl", feature = "backend-rustcrypto")))]
 pub fn set_boxed_cryptographer(c: Box<dyn Cryptographer>) -> Result<(), SetCryptographerError> {
     // Just leak the Box. It wouldn't be freed as a `static` anyway, and we
     // never allow this to be re-assigned (so it's not a meaningful memory leak).
@@ -45,6 +45,12 @@ fn autoinit_crypto() {
     let _ = set_cryptographer(&super::openssl::OpensslCryptographer);
 }
 
-#[cfg(not(feature = "backend-openssl"))]
+#[cfg(all(feature = "backend-rustcrypto", not(feature = "backend-openssl")))]
+#[inline]
+fn autoinit_crypto() {
+    let _ = set_cryptographer(&super::rustcrypto::RustCryptoCryptographer);
+}
+
+#[cfg(not(any(feature = "backend-openssl", feature = "backend-rustcrypto")))]
 #[inline]
 fn autoinit_crypto() {}

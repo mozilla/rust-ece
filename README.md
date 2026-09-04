@@ -96,8 +96,32 @@ These restrictions might be lifted in future, if it turns out that we need them.
 
 ## Cryptographic backends
 
-This crate is designed to use pluggable backend implementations of low-level crypto primitives. different crypto
-backends. At the moment only [openssl](https://github.com/sfackler/rust-openssl) is supported.
+This crate is designed to use pluggable backend implementations of low-level crypto primitives.
+
+Two backends are currently supported:
+
+* **OpenSSL** (default): Uses the [openssl](https://github.com/sfackler/rust-openssl) crate. This is the default backend and provides excellent performance, but requires OpenSSL to be installed on the system.
+* **RustCrypto**: Uses pure-Rust implementations from the [RustCrypto](https://github.com/RustCrypto) project. This backend has no C dependencies and works well with MUSL and static linking scenarios (e.g., Docker Alpine images).
+
+### Using the RustCrypto backend
+
+To use the RustCrypto backend instead of OpenSSL:
+
+```toml
+[dependencies]
+ece = { version = "2.4", default-features = false, features = ["backend-rustcrypto", "serializable-keys"] }
+```
+
+### Using both backends
+
+You can enable both backends simultaneously if needed:
+
+```toml
+[dependencies]
+ece = { version = "2.4", features = ["backend-rustcrypto"] }
+```
+
+When both backends are enabled, OpenSSL takes precedence by default. The backends are fully interoperable - keys and ciphertext generated with one backend can be used with the other.
 
 ## Release process
 

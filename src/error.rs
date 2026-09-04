@@ -54,4 +54,8 @@ pub enum Error {
     #[cfg(feature = "backend-openssl")]
     #[error("OpenSSL error: {0}")]
     OpenSSLError(#[from] openssl::error::ErrorStack),
+
+    #[cfg(feature = "backend-rustcrypto")]
+    #[error("RustCrypto error: {0}")]
+    RustCryptoError(String),
 }
