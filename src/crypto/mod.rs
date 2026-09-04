@@ -6,8 +6,11 @@ use crate::error::*;
 use std::any::Any;
 
 pub(crate) mod holder;
-#[cfg(feature = "backend-openssl")]
+#[cfg(all(not(test), feature = "backend-openssl"))]
 mod openssl;
+
+#[cfg(all(test, feature = "backend-openssl"))]
+pub mod openssl;
 
 #[cfg(not(feature = "backend-openssl"))]
 pub use holder::{set_boxed_cryptographer, set_cryptographer};
@@ -24,8 +27,6 @@ pub trait LocalKeyPair: Send + Sync + 'static {
     /// Export the public key component in the
     /// binary uncompressed point representation.
     fn pub_as_raw(&self) -> Result<Vec<u8>>;
-    /// Export the raw components of the keypair.
-    fn raw_components(&self) -> Result<EcKeyComponents>;
     /// For downcasting purposes.
     fn as_any(&self) -> &dyn Any;
 }
