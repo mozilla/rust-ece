@@ -43,7 +43,7 @@ pub fn decrypt_aesgcm(
     data: &AesGcmEncryptedBlock,
 ) -> Result<Vec<u8>> {
     let cryptographer = crate::crypto::holder::get_cryptographer();
-    let priv_key = cryptographer.import_key_pair(components).unwrap();
+    let priv_key = cryptographer.import_key_pair(components)?;
     aesgcm::decrypt(&*priv_key, auth, data)
 }
 
