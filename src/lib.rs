@@ -60,7 +60,7 @@ pub fn encrypt(remote_pub: &[u8], remote_auth: &[u8], data: &[u8]) -> Result<Vec
 ///
 pub fn decrypt(components: &EcKeyComponents, auth: &[u8], data: &[u8]) -> Result<Vec<u8>> {
     let cryptographer = crypto::holder::get_cryptographer();
-    let priv_key = cryptographer.import_key_pair(components).unwrap();
+    let priv_key = cryptographer.import_key_pair(components)?;
     aes128gcm::decrypt(&*priv_key, auth, data)
 }
 
