@@ -22,11 +22,16 @@ once_cell = "1.21"
 openssl = { version = "0.10", optional = true }
 serde = { version = "1.0", features = ["derive"], optional = true }
 sha2 = { version = "0.10", optional = true }
+# RustCrypto backend dependencies
+p256 = { version = "0.13", optional = true, features = ["ecdh", "std"] }
+aes-gcm = { version = "0.10", optional = true }
+rand_core = { version = "0.6", optional = true, features = ["std"] }
 
 [features]
 default = ["backend-openssl", "serializable-keys"]
 serializable-keys = ["serde"]
 backend-openssl = ["openssl", "lazy_static", "hkdf", "sha2"]
+backend-rustcrypto = ["p256", "aes-gcm", "hkdf", "sha2", "rand_core"]
 backend-test-helper = []
 
 [package.metadata.release]

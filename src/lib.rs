@@ -66,7 +66,7 @@ pub fn decrypt(components: &EcKeyComponents, auth: &[u8], data: &[u8]) -> Result
 
 /// Generate a pair of keys; useful for writing tests.
 ///
-#[cfg(all(test, feature = "backend-openssl"))]
+#[cfg(test)]
 fn generate_keys() -> Result<(Box<dyn LocalKeyPair>, Box<dyn LocalKeyPair>)> {
     let cryptographer = crypto::holder::get_cryptographer();
     let local_key = cryptographer.generate_ephemeral_keypair()?;
@@ -74,7 +74,7 @@ fn generate_keys() -> Result<(Box<dyn LocalKeyPair>, Box<dyn LocalKeyPair>)> {
     Ok((local_key, remote_key))
 }
 
-#[cfg(all(test, feature = "backend-openssl"))]
+#[cfg(test)]
 mod aes128gcm_tests {
     use super::common::ECE_TAG_LENGTH;
     use super::*;
@@ -293,7 +293,10 @@ mod aes128gcm_tests {
             "8115f4988b8c392a7bacb43c8f1ac5650000001241041994483c541e9bc39a6af03ff713aa7745c284e138a42a2435b797b20c4b698cf5118b4f8555317c190eabebfab749c164d3f6bdebe0d441719131a357d8890a13c4dbd4b16ff3dd5a83f7c91ad6e040ac42730a7f0b3cd3245e9f8d6ff31c751d410cfd"
         ).unwrap_err();
         match err {
+            #[cfg(feature = "backend-openssl")]
             Error::OpenSSLError(_) => {}
+            #[cfg(feature = "backend-rustcrypto")]
+            Error::CryptoError => {}
             _ => panic!("Unexpected error {:?}", err),
         };
     }

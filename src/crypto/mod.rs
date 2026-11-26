@@ -8,8 +8,10 @@ use std::any::Any;
 pub(crate) mod holder;
 #[cfg(feature = "backend-openssl")]
 mod openssl;
+#[cfg(feature = "backend-rustcrypto")]
+mod rustcrypto;
 
-#[cfg(not(feature = "backend-openssl"))]
+#[cfg(not(any(feature = "backend-openssl", feature = "backend-rustcrypto")))]
 pub use holder::{set_boxed_cryptographer, set_cryptographer};
 
 pub trait RemotePublicKey: Send + Sync + 'static {
@@ -165,5 +167,36 @@ mod tests {
     #[test]
     fn test_default_cryptograher() {
         test_cryptographer(super::openssl::OpensslCryptographer);
+    }
+}
+
+#[cfg(all(test, feature = "backend-rustcrypto", not(feature = "backend-openssl")))]
+mod rustcrypto_tests {
+    use super::*;
+
+    #[test]
+    fn test_rustcrypto_cryptographer() {
+        test_cryptographer(super::rustcrypto::RustCryptoCryptographer);
+    }
+}
+
+#[cfg(all(test, feature = "backend-openssl", feature = "backend-rustcrypto"))]
+mod interop_tests {
+    use super::*;
+
+    #[test]
+    fn test_backend_interop() {
+        let openssl_crypto = super::openssl::OpensslCryptographer;
+        let rustcrypto_crypto = super::rustcrypto::RustCryptoCryptographer;
+
+        // Generate key with OpenSSL, import to RustCrypto
+        let key = openssl_crypto.generate_ephemeral_keypair().unwrap();
+        let components = key.raw_components().unwrap();
+        rustcrypto_crypto.import_key_pair(&components).unwrap();
+
+        // Generate key with RustCrypto, import to OpenSSL
+        let key = rustcrypto_crypto.generate_ephemeral_keypair().unwrap();
+        let components = key.raw_components().unwrap();
+        openssl_crypto.import_key_pair(&components).unwrap();
     }
 }
