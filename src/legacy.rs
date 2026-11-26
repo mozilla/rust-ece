@@ -50,6 +50,7 @@ pub fn decrypt_aesgcm(
 #[cfg(all(test, feature = "backend-openssl"))]
 mod aesgcm_tests {
     use super::*;
+    use crate::crypto::openssl::OpenSSLLocalKeyPair;
     use base64::Engine;
     use hex;
 
@@ -152,7 +153,15 @@ mod aesgcm_tests {
         let (local_key, auth) = crate::generate_keypair_and_auth_secret()?;
         let plaintext = b"There was a little ship that had never sailed";
         let encoded = encrypt_aesgcm(&local_key.pub_as_raw()?, &auth, plaintext).unwrap();
-        let decoded = decrypt_aesgcm(&local_key.raw_components()?, &auth, &encoded)?;
+        let decoded = decrypt_aesgcm(
+            &local_key
+                .as_any()
+                .downcast_ref::<OpenSSLLocalKeyPair>()
+                .unwrap()
+                .raw_components()?,
+            &auth,
+            &encoded,
+        )?;
         assert_eq!(decoded, plaintext.to_vec());
         Ok(())
     }

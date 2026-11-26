@@ -77,6 +77,7 @@ fn generate_keys() -> Result<(Box<dyn LocalKeyPair>, Box<dyn LocalKeyPair>)> {
 #[cfg(all(test, feature = "backend-openssl"))]
 mod aes128gcm_tests {
     use super::common::ECE_TAG_LENGTH;
+    use super::crypto::openssl::OpenSSLLocalKeyPair;
     use super::*;
 
     #[allow(clippy::too_many_arguments)]
@@ -145,7 +146,12 @@ mod aes128gcm_tests {
         let ciphertext =
             encrypt(&remote_key.pub_as_raw().unwrap(), &auth_secret, plaintext).unwrap();
         let decrypted = decrypt(
-            &remote_key.raw_components().unwrap(),
+            &remote_key
+                .as_any()
+                .downcast_ref::<OpenSSLLocalKeyPair>()
+                .unwrap()
+                .raw_components()
+                .unwrap(),
             &auth_secret,
             &ciphertext,
         )
@@ -160,7 +166,12 @@ mod aes128gcm_tests {
         let ciphertext =
             encrypt(&remote_key.pub_as_raw().unwrap(), &auth_secret, &plaintext).unwrap();
         let decrypted = decrypt(
-            &remote_key.raw_components().unwrap(),
+            &remote_key
+                .as_any()
+                .downcast_ref::<OpenSSLLocalKeyPair>()
+                .unwrap()
+                .raw_components()
+                .unwrap(),
             &auth_secret,
             &ciphertext,
         )
@@ -212,7 +223,15 @@ mod aes128gcm_tests {
         let (local_key, auth) = generate_keypair_and_auth_secret()?;
         let plaintext = b"Mary had a little lamb, with some nice mint jelly";
         let encoded = encrypt(&local_key.pub_as_raw()?, &auth, plaintext).unwrap();
-        let decoded = decrypt(&local_key.raw_components()?, &auth, &encoded)?;
+        let decoded = decrypt(
+            &local_key
+                .as_any()
+                .downcast_ref::<OpenSSLLocalKeyPair>()
+                .unwrap()
+                .raw_components()?,
+            &auth,
+            &encoded,
+        )?;
         assert_eq!(decoded, plaintext.to_vec());
         Ok(())
     }

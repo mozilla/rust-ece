@@ -94,6 +94,15 @@ impl OpenSSLLocalKeyPair {
             ec_key: private_key,
         })
     }
+
+    #[cfg(test)]
+    pub fn raw_components(&self) -> Result<EcKeyComponents> {
+        let private_key = self.ec_key.private_key();
+        Ok(EcKeyComponents::new(
+            private_key.to_vec(),
+            self.pub_as_raw()?,
+        ))
+    }
 }
 
 impl LocalKeyPair for OpenSSLLocalKeyPair {
@@ -105,14 +114,6 @@ impl LocalKeyPair for OpenSSLLocalKeyPair {
         let uncompressed =
             pub_key_point.to_bytes(&GROUP_P256, PointConversionForm::UNCOMPRESSED, &mut bn_ctx)?;
         Ok(uncompressed)
-    }
-
-    fn raw_components(&self) -> Result<EcKeyComponents> {
-        let private_key = self.ec_key.private_key();
-        Ok(EcKeyComponents::new(
-            private_key.to_vec(),
-            self.pub_as_raw()?,
-        ))
     }
 
     fn as_any(&self) -> &dyn Any {
