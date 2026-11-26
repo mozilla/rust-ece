@@ -29,7 +29,7 @@ commands:
 jobs:
   Check Rust formatting:
     docker:
-      - image: circleci/rust:latest
+      - image: rust:1
         auth:
           username: $DOCKER_USER
           password: $DOCKER_PASS
@@ -41,7 +41,7 @@ jobs:
       - run: cargo fmt -- --check
   Rust tests - stable:
     docker:
-      - image: circleci/rust:latest
+      - image: rust:1
         auth:
           username: $DOCKER_USER
           password: $DOCKER_PASS
@@ -50,7 +50,7 @@ jobs:
       - rust-tests
   Rust tests - beta:
     docker:
-      - image: circleci/rust:latest
+      - image: rust:1
         auth:
           username: $DOCKER_USER
           password: $DOCKER_PASS

@@ -1,0 +1,39 @@
+name: build-test-deploy
+
+# Only invoke on merges to `main`
+on:
+  pull_request:
+  push:
+    branches:
+      - "*"
+    tags:
+      - "**"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+env:
+  RUST_VERSION: "1"
+
+# Stop any prior work that may have been in progress
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Set up rust
+        uses: dtolnay/rust-toolchain@stable
+      - name: Check format
+        run: |
+          cargo fmt --version
+          cargo fmt --all --check
+          cargo audit
+      - name: Run tests
+        run: cargo test --all-targets
+
+
