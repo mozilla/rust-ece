@@ -38,8 +38,10 @@ then distribute the public key and authentication secret to the sender:
 
 ```rust
 let (keypair, auth_secret) = ece::generate_keypair_and_auth_secret()?;
-let pubkey = keypair.pub_as_raw();
-// Base64-encode the `pubkey` and `auth_secret` bytes and distribute them to the sender.
+let components: EcKeyComponents = keypair.raw_components()?;
+let public_key: &[u8] = components.public_key();
+// Base64-encode `public_key` and `auth_secret` bytes and distribute them to the sender.
+// Save `components` and use it to decode messages.
 ```
 
 The sender can encrypt a Web Push message to the receiver's public key:
@@ -51,7 +53,7 @@ let ciphertext = ece::encrypt(&pubkey, &auth_secret, b"payload")?;
 And the receiver can decrypt it using their private key:
 
 ```rust
-let plaintext = ece::decrypt(&keypair, &auth_secret, &ciphertext)?;
+let plaintext = ece::decrypt(&components, &auth_secret, &ciphertext)?;
 ```
 
 That's pretty much all there is to it! It's up to the higher-level library to manage distributing the encrypted payload,
@@ -77,8 +79,8 @@ and `Crypto-Key` fields:
 ```rust
 // Parse `rs`, `salt` and `dh` from the `Encryption` and `Crypto-Key` headers.
 // You'll need to consult the spec for how to do this; we might add some helpers one day.
-let encrypted_block = ece::AesGcmEncryptedBlock::new(dh, rs, salt, ciphertext);
-let plaintext = ece::legacy::decrypt_aesgcm(keypair, auth_secret, encrypted_block)?;
+let encrypted_block = ece::legacy::AesGcmEncryptedBlock::new(dh, salt, rs, ciphertext);
+let plaintext = ece::legacy::decrypt_aesgcm(components, auth_secret, encrypted_block)?;
 ```
 
 ### Unimplemented Features
